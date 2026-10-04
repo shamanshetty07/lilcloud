@@ -1,0 +1,65 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  user
+  admin
+}
+
+enum Permission {
+  READ
+  WRITE
+  DELETE
+  OWNER
+}
+
+model User {
+  user_id       Int      @id @default(autoincrement())
+  username      String   @unique
+  email         String   @unique
+  password_hash String
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+  is_active     Boolean  @default(true)
+  role          Role     @default(user)
+
+  files       File[]
+  permissions FilePermission[]
+
+  @@map("users")
+}
+
+model File {
+  file_id     String   @id @default(uuid()) @db.Uuid
+  owner_id    Int
+  file_name   String
+  file_size   BigInt
+  file_type   String
+  uploaded_at DateTime @default(now())
+
+  owner       User             @relation(fields: [owner_id], references: [user_id], onDelete: Restrict)
+  permissions FilePermission[]
+
+  @@index([owner_id])
+  @@map("files")
+}
+
+model FilePermission {
+  permission_id Int        @id @default(autoincrement())
+  file_id       String     @db.Uuid
+  user_id       Int
+  permission    Permission
+
+  file File @relation(fields: [file_id], references: [file_id], onDelete: Cascade)
+  user User @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+
+  @@unique([file_id, user_id, permission])
+  @@index([user_id])
+  @@map("file_permissions")
+}
