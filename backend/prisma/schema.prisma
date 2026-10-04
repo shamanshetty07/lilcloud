@@ -7,59 +7,82 @@ datasource db {
   provider = "postgresql"
 }
 
-enum Role {
-  user
-  admin
+enum UserRole{
+  User
+  Admin 
+ }
+enum FileType {
+  PDF = "pdf",
+  DOC = "doc",
+  DOCX = "docx",
+  TXT = "txt",
+  XLS = "xls",
+  XLSX = "xlsx",
+  CSV = "csv",
+  PPT = "ppt",
+  PPTX = "pptx",
+  JPG = "jpg",
+  JPEG = "jpeg",
+  PNG = "png",
+  GIF = "gif",
+  WEBP = "webp",
+  SVG = "svg",
+  MP3 = "mp3",
+  WAV = "wav",
+  M4A = "m4a",
+  MP4 = "mp4",
+  MKV = "mkv",
+  MOV = "mov",
+  ZIP = "zip",
+  RAR = "rar",
+  SEVEN_Z = "7z",
+  JSON = "json",
+  XML = "xml",
+  HTML = "html",
+  CSS = "css",
+  JS = "js",
+  TS = "ts",
+  PY = "py"
 }
-
-enum Permission {
+enum Permission{
   READ
   WRITE
   DELETE
   OWNER
 }
 
-model User {
-  user_id       Int      @id @default(autoincrement())
-  username      String   @unique
-  email         String   @unique
-  password_hash String
-  created_at    DateTime @default(now())
-  updated_at    DateTime @updatedAt
-  is_active     Boolean  @default(true)
-  role          Role     @default(user)
+model User  {
+  user_id Int @id @default(autoincrement())
+  username String @unique
+  email String @unique
+  password_hash String 
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  role UserRole @default(User)
+  file Files[]
+  permission_user Permission[]
+  } 
 
-  files       File[]
-  permissions FilePermission[]
-
-  @@map("users")
-}
-
-model File {
-  file_id     String   @id @default(uuid()) @db.Uuid
-  owner_id    Int
-  file_name   String
-  file_size   BigInt
-  file_type   String
+model Files{
+  file_id Int @id @default(autoincrement())
+  owner_id Int 
+  file_name String
+  file_type FileType
   uploaded_at DateTime @default(now())
-
-  owner       User             @relation(fields: [owner_id], references: [user_id], onDelete: Restrict)
-  permissions FilePermission[]
-
-  @@index([owner_id])
-  @@map("files")
+  owner User @relation(fields:[owner_id],
+  references:[user_id])
+  file_permissions Permission[]
 }
 
-model FilePermission {
-  permission_id Int        @id @default(autoincrement())
-  file_id       String     @db.Uuid
-  user_id       Int
-  permission    Permission
+model Permission{
+  permission_id Int @id @default(autoincrement())
+  file_id Int
+  user_id Int
+  permission Permission
+  
+  file files @relation(fields:[file_id],
+  references:[file_id])
+  users User @relation(fields:[user_id],
+  references:[user_id])
 
-  file File @relation(fields: [file_id], references: [file_id], onDelete: Cascade)
-  user User @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
-
-  @@unique([file_id, user_id, permission])
-  @@index([user_id])
-  @@map("file_permissions")
 }
