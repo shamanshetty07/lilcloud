@@ -52,3 +52,51 @@ export const  signupService=async(data:signupData)=>{
         }
     }
 }
+
+type signinData={
+    email:string,
+    password:string
+}
+
+export const signinService=async(data:signinData)=>{
+    const user=await prisma.user.findUnique({
+        where:{email:data.email}
+    });
+    if(!user || !user.is_active){
+        throw new Error("invalid credentials");
+    }
+    const passwordMatches=await bcrypt.compare(data.password,user.password_hash);
+    if(!passwordMatches){
+        throw new Error("invalid credentials");
+    }
+    const token= jwt.sign({
+        id:user.user_id,
+        email:user.email
+    },env.JWT_SECRET,{
+        expiresIn:"7d"
+    })
+    return {
+        token,
+        user:{
+            id:user.user_id,
+            name:user.username,
+            email:user.email
+        }
+    }
+}
+
+export const meService=async(userId:number)=>{
+    const user=await prisma.user.findUnique({
+        where:{user_id:userId}
+    });
+    if(!user || !user.is_active){
+        throw new Error("user not found");
+    }
+    return {
+        user:{
+            id:user.user_id,
+            name:user.username,
+            email:user.email
+        }
+    }
+}
