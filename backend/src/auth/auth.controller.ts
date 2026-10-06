@@ -1,5 +1,6 @@
 import { signupService, signinService, meService } from "./auth.service";
 import  type { Request,Response} from "express";
+import { logAuthEvent } from "../activity/auth-log.service.ts";
 
 export const signup=async (req:Request,res:Response)=>{
 
@@ -23,6 +24,7 @@ export const signin=async (req:Request,res:Response)=>{
     }
     try{
         const result=await signinService({email,password});
+        void logAuthEvent({eventType:"login",status:"success",userId:result.user.id,email,ipAddress:req.ip});
         return res.status(200).json(result);
     }
     catch(err){
@@ -38,4 +40,9 @@ export const me=async (req:Request,res:Response)=>{
     catch(err){
         return res.status(404).json({message:"User not found"});
     }
+}
+
+export const logout=async (req:Request,res:Response)=>{
+    void logAuthEvent({eventType:"logout",status:"success",userId:(req as any).userId,ipAddress:req.ip});
+    return res.status(200).json({message:"Logged out"});
 }
