@@ -8,9 +8,13 @@ if (!process.env.DATABASE_URL) {
 if(!process.env.JWT_SECRET){
     throw new Error("JWT_SECRET is missing")
 }
+if (!process.env.MONGODB_URI) {
+    throw new Error("MONGODB_URI is missing")
+}
 export const env = {
     PORT: process.env.PORT,
     DATABASE_URL: process.env.DATABASE_URL,
-   JWT_SECRET:process.env.JWT_SECRET
+   JWT_SECRET:process.env.JWT_SECRET,
+    MONGODB_URI: process.env.MONGODB_URI
 
 }
