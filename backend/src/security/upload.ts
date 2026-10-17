@@ -1,7 +1,9 @@
 import type { Request, Response, NextFunction } from "express";
 import multer from "multer";
 import { basename, extname } from "node:path";
+import { randomUUID } from "node:crypto";
 import { cleanString } from "./sanitize.ts";
+import { storage } from "../files/storage.ts";
 
 export const MAX_FILE_SIZE=25*1024*1024;
 const MAX_NAME_LENGTH=200;
@@ -32,7 +34,11 @@ export const isBlockedName=(name:string)=>
     name.toLowerCase().split(".").slice(1).some(part=>BLOCKED_EXTENSIONS.has(part));
 
 export const multipart=multer({
-    storage:multer.memoryStorage(),
+    // stream straight to a temp file on disk instead of holding the upload in memory
+    storage:multer.diskStorage({
+        destination:(_req,_file,cb)=>cb(null,storage.tmpDir),
+        filename:(_req,_file,cb)=>cb(null,`${randomUUID()}.part`)
+    }),
     limits:{fileSize:MAX_FILE_SIZE,files:1,fields:5,fieldSize:1024,parts:10},
     fileFilter:(_req,file,cb)=>{
         const name=sanitizeFileName(file.originalname);

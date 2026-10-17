@@ -31,6 +31,8 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
-    "dev": "bun --watch src/server/server.ts"
+    "dev": "bun --watch src/server/server.ts",
+    "start": "bun src/server/server.ts",
+    "demo": "bun scripts/demo.ts"
   }
 }
