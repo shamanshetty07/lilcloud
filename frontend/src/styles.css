@@ -30,3 +30,4 @@ body { margin: 0; -webkit-font-smoothing: antialiased; }
 .label { font-family:var(--font-mono); font-size:.7rem; letter-spacing:.1em; text-transform:uppercase; color:var(--color-muted); }
 .hatch { background-image:repeating-linear-gradient(135deg,transparent 0 6px,rgba(255,255,255,.035) 6px 7px); }
 .corner { position:absolute; width:12px; height:12px; border-color:var(--color-line-strong); }
+.btn-social { text-transform:none; letter-spacing:0; font-family:var(--font-sans); font-size:.875rem; font-weight:500; padding:.65rem 1.25rem; }

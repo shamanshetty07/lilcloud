@@ -85,8 +85,10 @@ export default function Docs() {
             ["Email", "A valid email address. Each email can only be used for one account."],
             ["Password", "8 to 72 characters."],
           ]} />
+          <h3 className="mt-6 font-medium">Continue with Google or GitHub</h3>
+          <P>Prefer not to create a password? Choose <B>Continue with Google</B> or <B>Continue with GitHub</B> on the Sign in or Sign up page. We only receive your name and verified email address, and we never see your Google or GitHub password. If an account with that email already exists, you'll be signed in to it. Your provider must have a <B>verified</B> email on file.</P>
           <h3 className="mt-6 font-medium">Signing in and out</h3>
-          <P>Sign in with your email and password. You stay signed in for <B>7 days</B> on that browser, then you'll be asked to sign in again. Use <B>Sign out</B> in the top right to end your session sooner, which is a good idea on shared computers.</P>
+          <P>Sign in with your email and password, or with Google or GitHub. You stay signed in for <B>7 days</B> on that browser, then you'll be asked to sign in again. Use <B>Sign out</B> in the top right to end your session sooner, which is a good idea on shared computers.</P>
           <Note>There is currently no password reset, so keep your password somewhere safe.</Note>
 
           <H id="upload">Uploading</H>
@@ -154,6 +156,7 @@ export default function Docs() {
             ["Storage is full", "You've used all 1 GB. Delete items you no longer need, or join the waitlist for a larger plan."],
             ["Too many uploads, slow down", "You hit 20 uploads in a minute. Wait a minute and continue."],
             ["Too many attempts, try again later", "Too many sign-in attempts. Wait about 15 minutes."],
+            ["Sign-in was cancelled / expired", "You closed the Google or GitHub window, or took more than 10 minutes. Just try again."],
             ["Invalid email or password", "Check for typos. Passwords are case sensitive."],
             ["User already exists", "That username or email is taken. Try signing in instead."],
             ["Redirected to Sign in", "Your 7-day session ended. Sign in again, everything is still there."],

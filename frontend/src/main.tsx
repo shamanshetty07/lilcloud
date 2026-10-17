@@ -6,6 +6,7 @@ import Auth from "./pages/Auth.tsx";
 import Dashboard from "./pages/Dashboard.tsx";
 import Docs from "./pages/Docs.tsx";
 import Pricing from "./pages/Pricing.tsx";
+import AuthCallback from "./pages/AuthCallback.tsx";
 import { useEffect } from "react";
 
 function Routes() {
@@ -24,6 +25,7 @@ function Routes() {
   if (needsAuth) return user ? <Dashboard /> : null;
   if (path === "/docs") return <Docs />;
   if (path === "/pricing") return <Pricing />;
+  if (path === "/auth/callback") return <AuthCallback />;
   if (path === "/signin") return user ? null : <Auth mode="signin" />;
   if (path === "/signup") return user ? null : <Auth mode="signup" />;
   return <Landing />;
