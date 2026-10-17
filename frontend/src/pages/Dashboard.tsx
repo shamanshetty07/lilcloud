@@ -61,7 +61,7 @@ export default function Dashboard() {
       <main className="mx-auto max-w-5xl px-4 py-8">
         <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className="label">your files</p>
+            <p className="label">your storage</p>
             <h1 className="mt-1 text-3xl font-bold tracking-[-0.04em]">Storage</h1>
           </div>
           <p className="font-mono text-xs text-muted">{files?.length ?? 0} files · {formatSize(total)}</p>
@@ -76,7 +76,7 @@ export default function Dashboard() {
           onKeyDown={e => (e.key === "Enter" || e.key === " ") && input.current?.click()}
           className={`hatch cursor-pointer rounded-xl border border-dashed px-6 py-10 text-center transition-colors ${dragging ? "border-fg bg-raised" : "border-line-strong hover:bg-surface"}`}
         >
-          <p className="text-sm">Drop files here or <span className="underline underline-offset-4">browse</span></p>
+          <p className="text-sm">Drop anything here or <span className="underline underline-offset-4">browse</span></p>
           <p className="mt-1 font-mono text-xs text-muted">up to 25 MB each</p>
           <input ref={input} type="file" multiple hidden onChange={e => { if (e.target.files) send(e.target.files); e.target.value = ""; }} />
         </div>
@@ -104,7 +104,7 @@ export default function Dashboard() {
         )}
 
         <div className="mt-8 flex items-center justify-between gap-3">
-          <input className="input max-w-xs" placeholder="Search files…" value={query} onChange={e => setQuery(e.target.value)} />
+          <input className="input max-w-xs" placeholder="Search your storage…" value={query} onChange={e => setQuery(e.target.value)} />
           <button className="btn btn-ghost" onClick={load}>Refresh</button>
         </div>
 
@@ -112,7 +112,7 @@ export default function Dashboard() {
           {files === null ? (
             <p className="p-8 text-center text-sm text-muted">Loading…</p>
           ) : shown.length === 0 ? (
-            <p className="p-10 text-center text-sm text-muted">{files.length === 0 ? "No files yet. Upload your first one above." : "No files match your search."}</p>
+            <p className="p-10 text-center text-sm text-muted">{files.length === 0 ? "Nothing here yet. Upload your first item above." : "Nothing matches your search."}</p>
           ) : (
             <table className="w-full text-sm">
               <thead className="border-b border-line bg-surface text-left"><tr>

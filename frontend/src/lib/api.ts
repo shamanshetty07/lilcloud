@@ -56,7 +56,7 @@ export const api = {
 
   async download(file: FileItem) {
     const res = await fetch(`${API_URL}/files/${file.id}/download`, { headers: { Authorization: `Bearer ${tokenStore.get()}` } });
-    if (!res.ok) throw new ApiError(res.status, res.status === 404 ? "File not found on the server" : "Download failed");
+    if (!res.ok) throw new ApiError(res.status, res.status === 404 ? "That item no longer exists" : "Download failed");
     const url = URL.createObjectURL(await res.blob());
     const a = document.createElement("a");
     a.href = url; a.download = file.name; a.click();

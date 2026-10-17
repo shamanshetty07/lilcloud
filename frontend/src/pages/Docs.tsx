@@ -12,11 +12,11 @@ const BLOCKED = [
 const toc = [
   ["start", "Getting started"],
   ["account", "Your account"],
-  ["upload", "Uploading files"],
-  ["manage", "Finding your files"],
+  ["upload", "Uploading"],
+  ["manage", "Finding your things"],
   ["download", "Downloading"],
   ["delete", "Deleting"],
-  ["limits", "Limits & allowed files"],
+  ["limits", "Limits & what you can store"],
   ["privacy", "Privacy & security"],
   ["troubleshooting", "Troubleshooting"],
   ["faq", "FAQ"],
@@ -51,7 +51,7 @@ export default function Docs() {
           <Link href="/"><Logo /></Link>
           <div className="flex items-center gap-3">
             <span className="hidden font-mono text-xs text-muted sm:block">documentation</span>
-            <Link href={user ? "/app" : "/signin"} className="btn btn-primary">{user ? "Open files →" : "Sign in →"}</Link>
+            <Link href={user ? "/app" : "/signin"} className="btn btn-primary">{user ? "Open my storage →" : "Sign in →"}</Link>
           </div>
         </div>
       </header>
@@ -67,14 +67,14 @@ export default function Docs() {
         <main className="min-w-0 max-w-2xl flex-1 pt-10">
           <p className="label">documentation</p>
           <h1 className="mt-2 text-4xl font-bold tracking-[-0.05em] sm:text-5xl">Using lilcloud</h1>
-          <P>Everything you need to know to store, find, download and delete your files. It takes about two minutes to read.</P>
+          <P>Everything you need to know to store, find, download and delete everything you keep in lilcloud. It takes about two minutes to read.</P>
 
           <H id="start">Getting started</H>
           <Ol>
             <Li><B>Create an account</B> from the Sign up page.</Li>
             <Li>You land on your <B>Storage</B> page, which is empty at first.</Li>
-            <Li><B>Drag a file</B> onto the dashed box, or click it to browse.</Li>
-            <Li>Your file appears in the list as soon as the upload finishes.</Li>
+            <Li><B>Drag anything</B> onto the dashed box, or click it to browse.</Li>
+            <Li>It appears in your list as soon as the upload finishes.</Li>
           </Ol>
 
           <H id="account">Your account</H>
@@ -88,39 +88,39 @@ export default function Docs() {
           <P>Sign in with your email and password. You stay signed in for <B>7 days</B> on that browser, then you'll be asked to sign in again. Use <B>Sign out</B> in the top right to end your session sooner, which is a good idea on shared computers.</P>
           <Note>There is currently no password reset, so keep your password somewhere safe.</Note>
 
-          <H id="upload">Uploading files</H>
+          <H id="upload">Uploading</H>
           <Ul>
-            <Li><B>Drag and drop</B> one or many files onto the upload box, or click it and pick files from your device.</Li>
-            <Li>Each file shows a <B>live progress bar</B>. When it reaches 100%, the file joins your list.</Li>
-            <Li>You can upload <B>several files at once</B>. They are sent one after another.</Li>
+            <Li><B>Drag and drop</B> photos, documents, videos or anything else onto the upload box, or click it and pick items from your device.</Li>
+            <Li>Each upload shows a <B>live progress bar</B>. When it reaches 100%, it joins your list.</Li>
+            <Li>You can upload <B>several items at once</B>. They are sent one after another.</Li>
             <Li>If an upload fails, the reason appears next to it. Click it to dismiss, then try again.</Li>
           </Ul>
           <Note>Keep the page open until the progress bar finishes. Closing the tab or losing your connection cancels that upload, and nothing partial is saved.</Note>
-          <h3 className="mt-6 font-medium">File names</h3>
+          <h3 className="mt-6 font-medium">Names</h3>
           <P>Names are cleaned up for safety. Folder paths are removed, characters like <code className="font-mono text-fg">{'< > : " | ? *'}</code> become underscores, leading dots are dropped, and names longer than 200 characters are shortened (keeping the extension). Uploading the same name twice creates two separate files.</P>
 
-          <H id="manage">Finding your files</H>
-          <P>Your Storage page lists every file with its <B>name, type, size and upload time</B>, newest first. The counter at the top shows how many files you have and their total size.</P>
+          <H id="manage">Finding your things</H>
+          <P>Your Storage page lists everything you've stored with its <B>name, type, size and upload time</B>, newest first. The counter at the top shows how many items you have and their total size.</P>
           <Ul>
-            <Li><B>Search</B> filters the list by file name as you type.</Li>
+            <Li><B>Search</B> filters the list by name as you type.</Li>
             <Li><B>Refresh</B> reloads the list, handy if you use lilcloud on two devices.</Li>
           </Ul>
 
           <H id="download">Downloading</H>
-          <P>Click <B>download</B> on a file's row. The file is saved to your device exactly as you uploaded it, with its original name.</P>
+          <P>Click <B>download</B> on an item's row. It's saved to your device exactly as you uploaded it, with its original name.</P>
 
           <H id="delete">Deleting</H>
-          <P>Click <B>delete</B>, then <B>confirm delete</B>. Deleting is <B>permanent</B>. The file is removed completely and cannot be recovered, so download a copy first if you might need it.</P>
+          <P>Click <B>delete</B>, then <B>confirm delete</B>. Deleting is <B>permanent</B>. The item is removed completely and cannot be recovered, so download a copy first if you might need it.</P>
 
-          <H id="limits">Limits &amp; allowed files</H>
+          <H id="limits">Limits &amp; what you can store</H>
           <Table head={["Limit", "Value"]} rows={[
-            ["Maximum file size", "25 MB per file"],
+            ["Maximum size", "25 MB per item"],
             ["Uploads per minute", "20"],
             ["Sign-in / sign-up attempts", "20 per 15 minutes"],
             ["Session length", "7 days"],
           ]} />
           <h3 className="mt-6 font-medium">Files that can't be uploaded</h3>
-          <P>To keep everyone safe, programs and scripts are blocked. A file is rejected if any part of its name ends in one of these extensions, even if it's hidden in the middle, like <code className="font-mono text-fg">invoice.pdf.exe</code>:</P>
+          <P>To keep everyone safe, programs and scripts are blocked. An upload is rejected if any part of its name ends in one of these extensions, even if it's hidden in the middle, like <code className="font-mono text-fg">invoice.pdf.exe</code>:</P>
           <p className="mt-3 flex flex-wrap gap-1.5">
             {BLOCKED.map(e => <code key={e} className="rounded border border-line bg-surface px-1.5 py-0.5 font-mono text-xs text-muted">.{e}</code>)}
           </p>
@@ -128,7 +128,7 @@ export default function Docs() {
 
           <H id="privacy">Privacy &amp; security</H>
           <Ul>
-            <Li>Your files are <B>private to your account</B>. Other users can't see, list or download them, even if they somehow had a file's ID.</Li>
+            <Li>Everything you store is <B>private to your account</B>. Other users can't see, list or download them, even if they somehow had its ID.</Li>
             <Li>Passwords are stored securely hashed, never in plain text.</Li>
             <Li>There are no public links. Files can only be downloaded while signed in.</Li>
             <Li>Anything unusual, like repeated failed sign-ins, is rate limited automatically.</Li>
@@ -138,32 +138,32 @@ export default function Docs() {
           <H id="troubleshooting">Troubleshooting</H>
           <Table head={["You see", "What it means / what to do"]} rows={[
             ["Can't reach lilcloud right now", "Your connection dropped or the service is briefly unavailable. Check your internet, wait a minute and try again."],
-            ["Larger than 25 MB / File exceeds 25MB limit", "Compress the file, or split it into smaller parts."],
-            ["This file type is not allowed", "See the blocked list above. Zip the file first."],
+            ["Larger than 25 MB / File exceeds 25MB limit", "Compress it, or split it into smaller parts."],
+            ["This file type is not allowed", "See the blocked list above. Zip it first."],
             ["Too many uploads, slow down", "You hit 20 uploads in a minute. Wait a minute and continue."],
             ["Too many attempts, try again later", "Too many sign-in attempts. Wait about 15 minutes."],
             ["Invalid email or password", "Check for typos. Passwords are case sensitive."],
             ["User already exists", "That username or email is taken. Try signing in instead."],
-            ["Redirected to Sign in", "Your 7-day session ended. Sign in again, your files are still there."],
-            ["File not found on download", "The file was deleted, possibly from another device. Hit Refresh."],
-            ["Storage is unavailable", "A temporary problem on our side. Your files are safe, try again shortly."],
+            ["Redirected to Sign in", "Your 7-day session ended. Sign in again, everything is still there."],
+            ["That item no longer exists", "It was deleted, possibly from another device. Hit Refresh."],
+            ["Storage is unavailable", "A temporary problem on our side. Everything is safe, try again shortly."],
           ]} />
 
           <H id="faq">FAQ</H>
           <h3 className="mt-5 font-medium">Is there a storage quota?</h3>
-          <P>Not at the moment. The only limit is 25 MB per file.</P>
-          <h3 className="mt-5 font-medium">Can I make folders or share a file?</h3>
-          <P>Not yet. Files live in a single list, and sharing isn't available.</P>
-          <h3 className="mt-5 font-medium">Can I preview files in the browser?</h3>
-          <P>Not yet. Download a file to open it.</P>
-          <h3 className="mt-5 font-medium">Will my files ever expire?</h3>
-          <P>No. Files stay until you delete them.</P>
-          <h3 className="mt-5 font-medium">Can I rename a file?</h3>
+          <P>Not at the moment. The only limit is 25 MB per item.</P>
+          <h3 className="mt-5 font-medium">Can I make folders or share something?</h3>
+          <P>Not yet. Everything lives in a single list, and sharing isn't available.</P>
+          <h3 className="mt-5 font-medium">Can I preview things in the browser?</h3>
+          <P>Not yet. Download it to open it.</P>
+          <h3 className="mt-5 font-medium">Will my stuff ever expire?</h3>
+          <P>No. Everything stays until you delete it.</P>
+          <h3 className="mt-5 font-medium">Can I rename something?</h3>
           <P>Not yet. Upload it again under the new name and delete the old one.</P>
 
           <div className="mt-16 rounded-xl border border-line bg-surface p-8 text-center">
             <p className="text-lg font-semibold tracking-tight">Ready to go?</p>
-            <Link href={user ? "/app" : "/signup"} className="btn btn-primary mt-4">{user ? "Open your files →" : "Create an account →"}</Link>
+            <Link href={user ? "/app" : "/signup"} className="btn btn-primary mt-4">{user ? "Open your storage →" : "Create an account →"}</Link>
           </div>
         </main>
       </div>

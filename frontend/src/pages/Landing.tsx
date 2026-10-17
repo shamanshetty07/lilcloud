@@ -3,16 +3,16 @@ import { useAuth } from "../lib/auth.tsx";
 import { Logo } from "../components/Logo.tsx";
 
 const features = [
-  ["01", "all your files, one place", "Upload documents, images and anything else, and find them again in seconds."],
-  ["02", "private by default", "Every file is tied to your account. Nobody can fetch it by guessing an id."],
-  ["03", "access from anywhere", "Sign in from any device and your files are right there, ready to download."],
+  ["01", "all your files, one place", "Photos, documents, videos, backups. Put it all in one place and find it again in seconds."],
+  ["02", "private by default", "Everything you store is tied to your account. Nobody else can see or open it."],
+  ["03", "access from anywhere", "Sign in from any device and all your stuff is right there, ready to download."],
   ["04", "simple and fast", "Drag, drop, done. Uploads show live progress and deleting takes one confirmation."],
 ];
 
 const steps = [
-  ["upload", "Drag a file in, up to 25 MB each."],
-  ["list", "See everything you've stored, with size, type and date."],
-  ["download", "Pull any file back, byte for byte identical."],
+  ["upload", "Drag anything in, up to 25 MB each."],
+  ["list", "See everything you've stored, with its size, type and date."],
+  ["download", "Pull anything back, exactly as you saved it."],
   ["delete", "Remove it for good with one confirmation."],
 ];
 
@@ -30,7 +30,7 @@ export default function Landing() {
           </nav>
           <div className="flex items-center gap-3">
             {user
-              ? <Link href="/app" className="btn btn-primary">Open files →</Link>
+              ? <Link href="/app" className="btn btn-primary">Open my storage →</Link>
               : <Link href="/signin" className="btn btn-primary">Sign in →</Link>}
           </div>
         </div>
@@ -42,12 +42,12 @@ export default function Landing() {
             <div className="relative border border-line bg-bg px-6 py-20 text-center sm:py-28">
               <i className="corner -left-px -top-px border-l border-t" /><i className="corner -right-px -top-px border-r border-t" />
               <i className="corner -bottom-px -left-px border-b border-l" /><i className="corner -bottom-px -right-px border-b border-r" />
-              <p className="label mb-6">cloud file storage</p>
+              <p className="label mb-6">cloud storage</p>
               <h1 className="mx-auto max-w-3xl text-5xl font-bold leading-[0.95] tracking-[-0.05em] sm:text-7xl">
-                your files.<br />anywhere you are.
+                everything.<br />anywhere you are.
               </h1>
               <p className="mx-auto mt-7 max-w-xl text-base text-muted sm:text-lg">
-                Store, organize and retrieve your files from any device. Simple, private cloud storage that stays out of your way.
+                Keep photos, documents, videos and everything else in one place, and get to it from any device. Simple, private cloud storage that stays out of your way.
               </p>
               <div className="mt-9 flex flex-wrap justify-center gap-3">
                 <Link href={user ? "/app" : "/signup"} className="btn btn-primary">Get started →</Link>

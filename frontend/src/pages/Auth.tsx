@@ -29,7 +29,7 @@ export default function Auth({ mode }: { mode: "signin" | "signup" }) {
       <form onSubmit={submit} className="w-full max-w-sm space-y-4 rounded-xl border border-line bg-bg p-7">
         <div>
           <h1 className="text-2xl font-bold tracking-[-0.04em]">{isUp ? "Create your account" : "Welcome back"}</h1>
-          <p className="mt-1 text-sm text-muted">{isUp ? "Start storing your files in the cloud." : "Sign in to see your files."}</p>
+          <p className="mt-1 text-sm text-muted">{isUp ? "Start storing everything in the cloud." : "Sign in to see everything you've stored."}</p>
         </div>
         {isUp && (
           <label className="block space-y-1.5"><span className="label">username</span>
