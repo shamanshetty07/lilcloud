@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { rm } from "node:fs/promises";
-import { uploadFileService, listFilesService, findAccessibleFile, deleteFileService } from "./files.service.ts";
+import { uploadFileService, listFilesService, findAccessibleFile, deleteFileService, getUsageService, QuotaExceededError } from "./files.service.ts";
 import { storage, StorageError } from "./storage.ts";
 import { logActivity } from "../activity/activity.service.ts";
 
@@ -21,11 +21,24 @@ export const upload=async (req:Request,res:Response)=>{
     }
     catch(err){
         await rm(req.file.path,{force:true}).catch(()=>{});
+        if(err instanceof QuotaExceededError){
+            return res.status(413).json({message:"Storage is full. Delete something or join the waitlist for more space.",code:"QUOTA_EXCEEDED"});
+        }
         void logActivity({eventType:"file_upload",status:"failure",userId:(req as any).userId,ipAddress:req.ip,details:{name:req.file.originalname,reason:(err as Error).message}});
         if(err instanceof StorageError && err.code==="UNAVAILABLE"){
             return res.status(503).json({message:"Storage is unavailable"});
         }
         return res.status(500).json({message:"Upload failed"});
+    }
+}
+
+export const usage=async (req:Request,res:Response)=>{
+    try{
+        return res.json(await getUsageService((req as any).userId));
+    }
+    catch(err){
+        console.error("usage failed:",err);
+        return res.status(500).json({message:"Could not load usage"});
     }
 }
 

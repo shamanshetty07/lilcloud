@@ -2,6 +2,17 @@ import { randomUUID } from "node:crypto";
 import { prisma } from "../lib/prisma.ts"
 import { extname } from "node:path";
 import { storage, isValidKey } from "./storage.ts";
+import { PLANS, currentPlanFor } from "../plans/plans.ts";
+
+export class QuotaExceededError extends Error {
+    constructor(){ super("QUOTA_EXCEEDED"); }
+}
+
+export const getUsageService=async(userId:number)=>{
+    const sum=await prisma.file.aggregate({where:{owner_id:userId},_sum:{file_size:true}});
+    const plan=currentPlanFor(userId);
+    return {plan,usedBytes:Number(sum._sum.file_size ?? 0),limitBytes:PLANS[plan].limitBytes};
+}
 
 type uploadData={
     ownerId:number,
@@ -34,6 +45,8 @@ const toDto=(file:{file_id:string,file_name:string,file_size:bigint,file_type:st
 // the file id doubles as the storage key. content is stored first so a failed
 // write never leaves a database row pointing at nothing
 export const uploadFileService=async(data:uploadData)=>{
+    const usage=await getUsageService(data.ownerId);
+    if(usage.usedBytes+data.size>usage.limitBytes) throw new QuotaExceededError();
     const fileId=randomUUID();
     await storage.commit(data.tempPath,fileId);
     try{

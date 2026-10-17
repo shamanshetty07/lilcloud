@@ -7,6 +7,7 @@ export const MAX_FILE_SIZE = 25 * 1024 * 1024;
 
 export type User = { id: number; name: string; email: string };
 export type FileItem = { id: string; name: string; size: number; type: string; uploadedAt: string };
+export type Usage = { plan: string; usedBytes: number; limitBytes: number };
 export type Health = { status: "ok" | "degraded"; database: string; storage: string; warning?: string };
 
 export class ApiError extends Error {
@@ -50,6 +51,9 @@ export const api = {
     request<{ token: string; user: User }>("/auth/signup", { method: "POST", body: JSON.stringify({ username, email, password }) }, false),
   me: () => request<{ user: User }>("/auth/me"),
   logout: () => request<void>("/auth/logout", { method: "POST" }).catch(() => {}),
+  usage: () => request<Usage>("/files/usage"),
+  joinWaitlist: (email: string, plan: "plus" | "pro") =>
+    request<{ message: string }>("/waitlist", { method: "POST", body: JSON.stringify({ email, plan }) }, false),
   list: () => request<{ files: FileItem[] }>("/files"),
   remove: (id: string) => request<void>(`/files/${id}`, { method: "DELETE" }),
   health: () => fetch(`${API_URL}/health`).then(r => r.json() as Promise<Health>),
@@ -86,6 +90,7 @@ export const api = {
 };
 
 export const formatSize = (bytes: number) => {
+  if (bytes >= 1023.5 * 1024 ** 2) return `${(bytes / 1024 ** 3).toFixed(bytes >= 10 * 1024 ** 3 ? 0 : 1)} GB`;
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / 1024 ** 2).toFixed(1)} MB`;

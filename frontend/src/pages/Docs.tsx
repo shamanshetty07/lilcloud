@@ -17,6 +17,7 @@ const toc = [
   ["download", "Downloading"],
   ["delete", "Deleting"],
   ["limits", "Limits & what you can store"],
+  ["plans", "Storage plans"],
   ["privacy", "Privacy & security"],
   ["troubleshooting", "Troubleshooting"],
   ["faq", "FAQ"],
@@ -114,6 +115,7 @@ export default function Docs() {
 
           <H id="limits">Limits &amp; what you can store</H>
           <Table head={["Limit", "Value"]} rows={[
+            ["Free storage", "1 GB per account"],
             ["Maximum size", "25 MB per item"],
             ["Uploads per minute", "20"],
             ["Sign-in / sign-up attempts", "20 per 15 minutes"],
@@ -125,6 +127,15 @@ export default function Docs() {
             {BLOCKED.map(e => <code key={e} className="rounded border border-line bg-surface px-1.5 py-0.5 font-mono text-xs text-muted">.{e}</code>)}
           </p>
           <P>Need to store one of these? Put it in a <code className="font-mono text-fg">.zip</code> archive first. Documents, images, audio, video, PDFs, spreadsheets and archives are all fine.</P>
+
+          <H id="plans">Storage plans</H>
+          <P>Every account includes <B>1 GB of free storage</B>. Your usage is shown on your Storage page. Deleting items frees up space immediately.</P>
+          <Table head={["Plan", "Storage", "Price", "Status"]} rows={[
+            ["Free", "1 GB", "$0", "Available"],
+            ["Plus", "50 GB", "$20 per year", "Coming soon"],
+            ["Pro", "100 GB", "$50 per year", "Coming soon"],
+          ]} />
+          <P>Paid plans aren't open yet. You can <Link href="/pricing" className="text-fg underline underline-offset-4">join the waitlist</Link> and we'll email you once they launch. Nothing is charged until you choose to upgrade.</P>
 
           <H id="privacy">Privacy &amp; security</H>
           <Ul>
@@ -140,6 +151,7 @@ export default function Docs() {
             ["Can't reach lilcloud right now", "Your connection dropped or the service is briefly unavailable. Check your internet, wait a minute and try again."],
             ["Larger than 25 MB / File exceeds 25MB limit", "Compress it, or split it into smaller parts."],
             ["This file type is not allowed", "See the blocked list above. Zip it first."],
+            ["Storage is full", "You've used all 1 GB. Delete items you no longer need, or join the waitlist for a larger plan."],
             ["Too many uploads, slow down", "You hit 20 uploads in a minute. Wait a minute and continue."],
             ["Too many attempts, try again later", "Too many sign-in attempts. Wait about 15 minutes."],
             ["Invalid email or password", "Check for typos. Passwords are case sensitive."],
@@ -150,8 +162,8 @@ export default function Docs() {
           ]} />
 
           <H id="faq">FAQ</H>
-          <h3 className="mt-5 font-medium">Is there a storage quota?</h3>
-          <P>Not at the moment. The only limit is 25 MB per item.</P>
+          <h3 className="mt-5 font-medium">How much storage do I get?</h3>
+          <P>1 GB free, with a 25 MB limit per item. Larger plans (50 GB and 100 GB) are coming soon.</P>
           <h3 className="mt-5 font-medium">Can I make folders or share something?</h3>
           <P>Not yet. Everything lives in a single list, and sharing isn't available.</P>
           <h3 className="mt-5 font-medium">Can I preview things in the browser?</h3>

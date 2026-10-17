@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, formatSize, MAX_FILE_SIZE, type FileItem } from "../lib/api.ts";
+import { api, formatSize, MAX_FILE_SIZE, type FileItem, type Usage } from "../lib/api.ts";
 import { useAuth } from "../lib/auth.tsx";
 import { Link } from "../lib/router.tsx";
 import { Logo } from "../components/Logo.tsx";
@@ -15,13 +15,15 @@ export default function Dashboard() {
   const [dragging, setDragging] = useState(false);
   const [confirming, setConfirming] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [usage, setUsage] = useState<Usage | null>(null);
+  const loadUsage = useCallback(() => { api.usage().then(setUsage).catch(() => {}); }, []);
   const input = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     try { setFiles((await api.list()).files); setError(""); }
     catch (e) { setError((e as Error).message); setFiles(f => f ?? []); }
   }, []);
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(); loadUsage(); }, [load, loadUsage]);
 
   const patch = (key: number, p: Partial<Upload>) => setUploads(u => u.map(x => x.key === key ? { ...x, ...p } : x));
 
@@ -33,6 +35,7 @@ export default function Dashboard() {
       try {
         const saved = await api.upload(file, pct => patch(key, { pct }));
         setFiles(f => [saved, ...(f ?? [])]);
+        loadUsage();
         setUploads(u => u.filter(x => x.key !== key));
       } catch (e) { patch(key, { error: (e as Error).message }); }
     }
@@ -43,7 +46,6 @@ export default function Dashboard() {
   };
 
   const shown = (files ?? []).filter(f => f.name.toLowerCase().includes(query.toLowerCase()));
-  const total = (files ?? []).reduce((s, f) => s + f.size, 0);
 
   return (
     <div className="min-h-screen">
@@ -51,6 +53,7 @@ export default function Dashboard() {
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
           <Link href="/"><Logo /></Link>
           <div className="flex items-center gap-3">
+            <Link href="/pricing" className="hidden font-mono text-xs text-muted hover:text-fg sm:block">plans</Link>
             <Link href="/docs" className="hidden font-mono text-xs text-muted hover:text-fg sm:block">docs</Link>
             <span className="hidden font-mono text-xs text-muted sm:block">{user?.name}</span>
             <button className="btn btn-ghost" onClick={signout}>Sign out</button>
@@ -64,8 +67,24 @@ export default function Dashboard() {
             <p className="label">your storage</p>
             <h1 className="mt-1 text-3xl font-bold tracking-[-0.04em]">Storage</h1>
           </div>
-          <p className="font-mono text-xs text-muted">{files?.length ?? 0} files · {formatSize(total)}</p>
+          <p className="font-mono text-xs text-muted">{files?.length ?? 0} items</p>
         </div>
+
+        {usage && (
+          <div className="mb-6 rounded-xl border border-line bg-surface px-5 py-4">
+            <div className="flex items-baseline justify-between gap-3">
+              <p className="text-sm"><span className="font-medium">{formatSize(usage.usedBytes)}</span> <span className="text-muted">of {formatSize(usage.limitBytes)} used</span></p>
+              <Link href="/pricing" className="font-mono text-xs text-muted underline underline-offset-4 hover:text-fg">need more space?</Link>
+            </div>
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-line">
+              <div className={`h-full rounded-full transition-all ${usage.usedBytes / usage.limitBytes > 0.9 ? "bg-danger" : usage.usedBytes / usage.limitBytes > 0.75 ? "bg-warn" : "bg-fg"}`}
+                style={{ width: `${Math.min(100, Math.max(usage.usedBytes > 0 ? 1 : 0, (usage.usedBytes / usage.limitBytes) * 100))}%` }} />
+            </div>
+            {usage.usedBytes / usage.limitBytes > 0.9 && (
+              <p className="mt-3 text-sm text-muted">You're almost out of space. Larger plans are launching soon, so <Link href="/pricing" className="text-fg underline underline-offset-4">join the waitlist</Link>.</p>
+            )}
+          </div>
+        )}
 
         <div
           onDragOver={e => { e.preventDefault(); setDragging(true); }}
@@ -132,7 +151,7 @@ export default function Dashboard() {
                     <td className="whitespace-nowrap px-4 py-3 text-right">
                       {confirming === f.id ? (
                         <span className="inline-flex items-center gap-3 font-mono text-xs">
-                          <button className="text-danger" onClick={() => act(async () => { await api.remove(f.id); setFiles(x => x!.filter(i => i.id !== f.id)); setConfirming(null); })}>confirm delete</button>
+                          <button className="text-danger" onClick={() => act(async () => { await api.remove(f.id); setFiles(x => x!.filter(i => i.id !== f.id)); setConfirming(null); loadUsage(); })}>confirm delete</button>
                           <button className="text-muted" onClick={() => setConfirming(null)}>cancel</button>
                         </span>
                       ) : (

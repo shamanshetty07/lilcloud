@@ -1,6 +1,7 @@
 import { Link } from "../lib/router.tsx";
 import { useAuth } from "../lib/auth.tsx";
 import { Logo } from "../components/Logo.tsx";
+import { PlanCards } from "../components/PlanCards.tsx";
 
 const features = [
   ["01", "all your files, one place", "Photos, documents, videos, backups. Put it all in one place and find it again in seconds."],
@@ -26,6 +27,7 @@ export default function Landing() {
           <nav className="hidden gap-8 font-mono text-xs text-muted sm:flex">
             <a href="#features" className="hover:text-fg">features</a>
             <a href="#how" className="hover:text-fg">how it works</a>
+            <a href="#pricing" className="hover:text-fg">pricing</a>
             <Link href="/docs" className="hover:text-fg">docs</Link>
           </nav>
           <div className="flex items-center gap-3">
@@ -88,6 +90,14 @@ export default function Landing() {
               <h3 className="text-2xl font-bold tracking-[-0.04em]">Ready to try it?</h3>
               <Link href={user ? "/app" : "/signup"} className="btn btn-primary">Create an account →</Link>
             </div>
+          </div>
+        </section>
+        <section id="pricing" className="border-t border-line">
+          <div className="mx-auto max-w-6xl px-4 py-20">
+            <p className="label mb-3">pricing</p>
+            <h2 className="max-w-xl text-3xl font-bold tracking-[-0.04em] sm:text-4xl">Start free. Grow when you need to.</h2>
+            <p className="mt-3 max-w-xl text-muted">1 GB on the house. Larger plans are launching soon, so join the waitlist to hear first.</p>
+            <div className="mt-10"><PlanCards /></div>
           </div>
         </section>
       </main>
