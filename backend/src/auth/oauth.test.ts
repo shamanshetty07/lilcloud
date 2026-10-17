@@ -28,6 +28,6 @@ test("only known providers are accepted", () => {
 test("derived usernames always satisfy the signup rule", () => {
     const ok = /^[A-Za-z0-9_.-]{3,30}$/;
     for (const [n, e] of [["Jo", "jo@x.com"], ["Zoë Ñandú", "z@x.com"], ["", "a@x.com"], ["x".repeat(80), "x@x.com"], ["日本語", "j@x.com"]]) {
-        expect(deriveUsername(n, e)).toMatch(ok);
+        expect(deriveUsername(n!, e!)).toMatch(ok);
     }
 });
