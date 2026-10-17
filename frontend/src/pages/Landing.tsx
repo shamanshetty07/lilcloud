@@ -2,9 +2,11 @@ import { Link } from "../lib/router.tsx";
 import { useAuth } from "../lib/auth.tsx";
 import { Logo } from "../components/Logo.tsx";
 import { PlanCards } from "../components/PlanCards.tsx";
+import { Reveal } from "../components/Reveal.tsx";
+import { IconStack, IconLock, IconGlobe, IconBolt } from "../components/FeatureIcons.tsx";
 
 const features = [
-  ["01", "all your files, one place", "Photos, documents, videos, backups. Put it all in one place and find it again in seconds."],
+  ["01", "all your stuff, one place", "Photos, documents, videos, backups. Put it all in one place and find it again in seconds."],
   ["02", "private by default", "Everything you store is tied to your account. Nobody else can see or open it."],
   ["03", "access from anywhere", "Sign in from any device and all your stuff is right there, ready to download."],
   ["04", "simple and fast", "Drag, drop, done. Uploads show live progress and deleting takes one confirmation."],
@@ -41,7 +43,7 @@ export default function Landing() {
       <main>
         <section className="hatch border-b border-line">
           <div className="mx-auto max-w-6xl px-4 py-10 sm:py-16">
-            <div className="relative border border-line bg-bg px-6 py-20 text-center sm:py-28">
+            <div className="hero-in relative border border-line bg-bg px-6 py-20 text-center sm:py-28">
               <i className="corner -left-px -top-px border-l border-t" /><i className="corner -right-px -top-px border-r border-t" />
               <i className="corner -bottom-px -left-px border-b border-l" /><i className="corner -bottom-px -right-px border-b border-r" />
               <p className="label mb-6">cloud storage</p>
@@ -60,43 +62,51 @@ export default function Landing() {
         </section>
 
         <section id="features" className="mx-auto max-w-6xl px-4 py-20">
-          <p className="label mb-3">features</p>
-          <h2 className="max-w-xl text-3xl font-bold tracking-[-0.04em] sm:text-4xl">Small on purpose.</h2>
+          <Reveal><p className="label mb-3">features</p></Reveal>
+          <Reveal delay={80}><h2 className="max-w-xl text-3xl font-bold tracking-[-0.04em] sm:text-4xl">Small on purpose.</h2></Reveal>
           <div className="mt-10 grid gap-px overflow-hidden rounded-xl border border-line bg-line sm:grid-cols-2">
-            {features.map(([n, t, d]) => (
-              <div key={n} className="bg-bg p-7">
-                <span className="font-mono text-xs text-muted">{n}</span>
-                <h3 className="mt-3 text-lg font-semibold tracking-tight">{t}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted">{d}</p>
-              </div>
-            ))}
+            {features.map(([n, t, d], i) => {
+              const Icon = [IconStack, IconLock, IconGlobe, IconBolt][i]!;
+              return (
+                <Reveal key={n} delay={i * 90} className="feature bg-bg p-7">
+                  <div className="flex items-start justify-between">
+                    <span className="num font-mono text-xs text-muted">{n}</span>
+                    <Icon />
+                  </div>
+                  <h3 className="mt-3 text-lg font-semibold tracking-tight">{t}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-muted">{d}</p>
+                </Reveal>
+              );
+            })}
           </div>
         </section>
 
         <section id="how" className="border-t border-line">
           <div className="mx-auto max-w-6xl px-4 py-20">
-            <p className="label mb-3">how it works</p>
-            <h2 className="text-3xl font-bold tracking-[-0.04em] sm:text-4xl">Four things, done well.</h2>
+            <Reveal><p className="label mb-3">how it works</p></Reveal>
+            <Reveal delay={80}><h2 className="text-3xl font-bold tracking-[-0.04em] sm:text-4xl">Four things, done well.</h2></Reveal>
             <ol className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {steps.map(([t, d], i) => (
-                <li key={t} className="rounded-xl border border-line bg-surface p-5">
-                  <span className="font-mono text-xs text-muted">step {i + 1}</span>
-                  <p className="mt-3 font-mono text-sm">{t}</p>
-                  <p className="mt-2 text-sm text-muted">{d}</p>
-                </li>
+                <Reveal as="li" key={t} delay={i * 90} className="list-none">
+                  <div className="lift h-full rounded-xl border border-line bg-surface p-5">
+                    <span className="font-mono text-xs text-muted">step {i + 1}</span>
+                    <p className="mt-3 font-mono text-sm">{t}</p>
+                    <p className="mt-2 text-sm text-muted">{d}</p>
+                  </div>
+                </Reveal>
               ))}
             </ol>
-            <div className="mt-14 flex flex-col items-center gap-4 rounded-xl border border-line bg-surface p-10 text-center">
+            <Reveal className="mt-14 flex flex-col items-center gap-4 rounded-xl border border-line bg-surface p-10 text-center">
               <h3 className="text-2xl font-bold tracking-[-0.04em]">Ready to try it?</h3>
               <Link href={user ? "/app" : "/signup"} className="btn btn-primary">Create an account →</Link>
-            </div>
+            </Reveal>
           </div>
         </section>
         <section id="pricing" className="border-t border-line">
           <div className="mx-auto max-w-6xl px-4 py-20">
-            <p className="label mb-3">pricing</p>
-            <h2 className="max-w-xl text-3xl font-bold tracking-[-0.04em] sm:text-4xl">Start free. Grow when you need to.</h2>
-            <p className="mt-3 max-w-xl text-muted">1 GB on the house. Larger plans are launching soon, so join the waitlist to hear first.</p>
+            <Reveal><p className="label mb-3">pricing</p></Reveal>
+            <Reveal delay={80}><h2 className="max-w-xl text-3xl font-bold tracking-[-0.04em] sm:text-4xl">Start free. Grow when you need to.</h2></Reveal>
+            <Reveal delay={140}><p className="mt-3 max-w-xl text-muted">1 GB on the house. Larger plans are launching soon, so join the waitlist to hear first.</p></Reveal>
             <div className="mt-10"><PlanCards /></div>
           </div>
         </section>

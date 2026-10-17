@@ -3,6 +3,7 @@ import { PLANS } from "../lib/plans.ts";
 import { WaitlistForm } from "./WaitlistForm.tsx";
 import { Link } from "../lib/router.tsx";
 import { useAuth } from "../lib/auth.tsx";
+import { Reveal } from "./Reveal.tsx";
 
 export function PlanCards() {
   const { user } = useAuth();
@@ -12,8 +13,9 @@ export function PlanCards() {
   return (
     <>
       <div className="grid gap-4 md:grid-cols-3">
-        {PLANS.map(p => (
-          <div key={p.id} className={`flex flex-col rounded-xl border p-6 ${p.id === "plus" ? "border-line-strong bg-surface" : "border-line bg-bg"}`}>
+        {PLANS.map((p, i) => (
+          <Reveal key={p.id} delay={i * 100} className="flex">
+          <div className={`lift flex w-full flex-col rounded-xl border p-6 ${p.id === "plus" ? "border-line-strong bg-surface" : "border-line bg-bg"}`}>
             <div className="flex items-center justify-between">
               <h3 className="font-mono text-sm uppercase tracking-widest">{p.name}</h3>
               {!p.available && <span className="rounded-full border border-line-strong px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted">coming soon</span>}
@@ -28,6 +30,7 @@ export function PlanCards() {
               ? <Link href={user ? "/app" : "/signup"} className="btn btn-primary mt-7">{user ? "Your current plan" : "Get started free"}</Link>
               : <button className="btn btn-ghost mt-7" onClick={() => setOpen(p.id as "plus" | "pro")}>Join the waitlist</button>}
           </div>
+          </Reveal>
         ))}
       </div>
 

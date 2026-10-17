@@ -31,3 +31,51 @@ body { margin: 0; -webkit-font-smoothing: antialiased; }
 .hatch { background-image:repeating-linear-gradient(135deg,transparent 0 6px,rgba(255,255,255,.035) 6px 7px); }
 .corner { position:absolute; width:12px; height:12px; border-color:var(--color-line-strong); }
 .btn-social { text-transform:none; letter-spacing:0; font-family:var(--font-sans); font-size:.875rem; font-weight:500; padding:.65rem 1.25rem; }
+
+/* ---------- motion ---------- */
+@keyframes fade-up { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.5px); } }
+@keyframes ring { 0% { transform: scale(1); opacity: .5; } 100% { transform: scale(1.5); opacity: 0; } }
+@keyframes bar { 0% { transform: scaleX(.1); } 70%, 100% { transform: scaleX(1); } }
+
+.reveal { opacity: 0; transform: translateY(16px); transition: opacity .65s cubic-bezier(.2,.7,.2,1), transform .65s cubic-bezier(.2,.7,.2,1); transition-delay: var(--d, 0ms); }
+.reveal.in { opacity: 1; transform: none; }
+
+/* hero entrance: children rise in one after another */
+.hero-in > * { animation: fade-up .8s cubic-bezier(.2,.7,.2,1) both; }
+.hero-in > :nth-child(5) { animation-delay: .05s; }
+.hero-in > :nth-child(6) { animation-delay: .15s; }
+.hero-in > :nth-child(7) { animation-delay: .3s; }
+.hero-in > :nth-child(8) { animation-delay: .45s; }
+.hero-in > i.corner { animation: fade-in 1.2s ease both; animation-delay: .1s; }
+
+/* feature cards */
+.feature { transition: background-color .25s ease; }
+.feature:hover { background: var(--color-surface); }
+.feature .num { transition: color .25s ease, transform .25s ease; display: inline-block; }
+.feature:hover .num { color: var(--color-fg); transform: translateX(3px); }
+.feature .ico { color: var(--color-muted); transition: color .25s ease, transform .3s cubic-bezier(.2,.7,.2,1); }
+.feature:hover .ico { color: var(--color-fg); transform: scale(1.08); }
+
+.ico-stack rect { animation: float 3.2s ease-in-out infinite; animation-delay: calc(var(--i) * .3s); transition: transform .3s ease; }
+.feature:hover .ico-stack rect:nth-child(1) { transform: translateX(-2px); }
+.feature:hover .ico-stack rect:nth-child(3) { transform: translateX(2px); }
+.ico-lock .shackle { transition: transform .3s cubic-bezier(.2,.7,.2,1); transform-box: fill-box; }
+.feature:hover .ico-lock .shackle { transform: translateY(-2.5px); }
+.ico-globe .ring { transform-origin: 16px 16px; animation: ring 2.6s ease-out infinite; }
+.ico-bar .fill { transform-origin: 8px 16px; animation: bar 2.4s cubic-bezier(.4,0,.2,1) infinite; }
+
+/* step + plan cards lift slightly */
+.lift { transition: transform .25s cubic-bezier(.2,.7,.2,1), border-color .25s ease; }
+.lift:hover { transform: translateY(-3px); border-color: var(--color-line-strong); }
+
+/* buttons: arrow-ish nudge and press feedback */
+.btn { transition: background .15s, border-color .15s, opacity .15s, transform .15s; }
+.btn:active:not(:disabled) { transform: scale(.97); }
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1; transform: none; transition: none; }
+  .hero-in > *, .ico-stack rect, .ico-globe .ring, .ico-bar .fill { animation: none !important; }
+  .lift, .feature, .feature * { transition: none !important; }
+}
