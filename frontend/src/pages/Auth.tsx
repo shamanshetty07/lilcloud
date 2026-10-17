@@ -25,7 +25,7 @@ export default function Auth({ mode }: { mode: "signin" | "signup" }) {
 
   return (
     <div className="hatch flex min-h-screen flex-col items-center justify-center px-4">
-      <Link href="/" className="mb-8"><Logo size={26} /></Link>
+      <Link href="/" className="mb-8"><Logo size={40} /></Link>
       <form onSubmit={submit} className="w-full max-w-sm space-y-4 rounded-xl border border-line bg-bg p-7">
         <div>
           <h1 className="text-2xl font-bold tracking-[-0.04em]">{isUp ? "Create your account" : "Welcome back"}</h1>
