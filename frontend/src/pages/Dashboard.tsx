@@ -51,6 +51,7 @@ export default function Dashboard() {
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
           <Link href="/"><Logo /></Link>
           <div className="flex items-center gap-3">
+            <Link href="/docs" className="hidden font-mono text-xs text-muted hover:text-fg sm:block">docs</Link>
             <span className="hidden font-mono text-xs text-muted sm:block">{user?.name}</span>
             <button className="btn btn-ghost" onClick={signout}>Sign out</button>
           </div>

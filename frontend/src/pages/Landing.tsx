@@ -26,6 +26,7 @@ export default function Landing() {
           <nav className="hidden gap-8 font-mono text-xs text-muted sm:flex">
             <a href="#features" className="hover:text-fg">features</a>
             <a href="#how" className="hover:text-fg">how it works</a>
+            <Link href="/docs" className="hover:text-fg">docs</Link>
           </nav>
           <div className="flex items-center gap-3">
             {user
