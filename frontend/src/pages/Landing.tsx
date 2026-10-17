@@ -45,11 +45,11 @@ export default function Landing() {
               <i className="corner -left-px -top-px border-l border-t" /><i className="corner -right-px -top-px border-r border-t" />
               <i className="corner -bottom-px -left-px border-b border-l" /><i className="corner -bottom-px -right-px border-b border-r" />
               <p className="label mb-6">cloud storage</p>
-              <h1 className="mx-auto max-w-3xl text-5xl font-bold leading-[0.95] tracking-[-0.05em] sm:text-7xl">
-                everything.<br />anywhere you are.
+              <h1 className="mx-auto max-w-3xl text-5xl font-bold leading-[1.02] tracking-[-0.035em] sm:text-7xl">
+                Keep everything.<br />Access it anywhere.
               </h1>
               <p className="mx-auto mt-7 max-w-xl text-base text-muted sm:text-lg">
-                Keep photos, documents, videos and everything else in one place, and get to it from any device. Simple, private cloud storage that stays out of your way.
+                Photos, documents, videos and everything in between, all in one place and ready on any device. Simple, private storage that stays out of your way.
               </p>
               <div className="mt-9 flex flex-wrap justify-center gap-3">
                 <Link href={user ? "/app" : "/signup"} className="btn btn-primary">Get started →</Link>
