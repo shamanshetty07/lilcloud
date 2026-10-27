@@ -1,6 +1,8 @@
 import express from "express"
 import authRouter from "../auth/auth.routes.js"
 import filesRouter from "../files/files.routes.js"
+import foldersRouter from "../folders/folders.routes.ts"
+import groupsRouter from "../groups/groups.routes.ts"
 import waitlistRouter from "../plans/waitlist.routes.ts"
 import { securityHeaders } from "../security/headers.ts"
 import { sanitizeInput } from "../security/sanitize.ts"
@@ -21,6 +23,8 @@ app.use(express.json({limit:"10kb"}))
 app.use(sanitizeInput)
 app.use("/api/v1/auth",authRouter)
 app.use("/api/v1/files",filesRouter)
+app.use("/api/v1/folders",foldersRouter)
+app.use("/api/v1/groups",groupsRouter)
 app.use("/api/v1/waitlist",waitlistRouter)
 app.use(errorHandler)
 export default app;

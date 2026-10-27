@@ -1,0 +1,3 @@
+[test]
+# points DATABASE_URL at TEST_DATABASE_URL before any test file loads (bun auto-loads .env, which holds the real database)
+preload = ["./src/test-utils/preload.ts"]

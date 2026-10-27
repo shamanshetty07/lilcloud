@@ -6,7 +6,15 @@ export const API_URL = (configuredUrl || "http://localhost:3000/api/v1").replace
 export const MAX_FILE_SIZE = 25 * 1024 * 1024;
 
 export type User = { id: number; name: string; email: string };
-export type FileItem = { id: string; name: string; size: number; type: string; uploadedAt: string };
+export type FileItem = { id: string; name: string; size: number; type: string; uploadedAt: string; folderId: string | null };
+export type FolderItem = { id: string; name: string; parentId: string | null; createdAt: string; updatedAt: string };
+export type Crumb = { id: string; name: string };
+export type FolderContents = { folder: FolderItem | null; breadcrumb: Crumb[]; folders: FolderItem[]; files: FileItem[] };
+export type RecentItem = FileItem & { viewedAt: string };
+export type GroupRole = "admin" | "member";
+export type Group = { id: string; name: string; role: GroupRole; memberCount: number; fileCount: number; createdAt: string; updatedAt: string };
+export type Member = { userId: number; username: string; role: GroupRole; joinedAt: string };
+export type GroupFile = FileItem & { uploadedBy: { id: number; name: string }; sharedAt: string };
 export type Usage = { plan: string; usedBytes: number; limitBytes: number };
 export type Health = { status: "ok" | "degraded"; database: string; storage: string; warning?: string };
 
@@ -58,20 +66,54 @@ export const api = {
   remove: (id: string) => request<void>(`/files/${id}`, { method: "DELETE" }),
   health: () => fetch(`${API_URL}/health`).then(r => r.json() as Promise<Health>),
 
-  async download(file: FileItem) {
-    const res = await fetch(`${API_URL}/files/${file.id}/download`, { headers: { Authorization: `Bearer ${tokenStore.get()}` } });
-    if (!res.ok) throw new ApiError(res.status, res.status === 404 ? "That item no longer exists" : "Download failed");
-    const url = URL.createObjectURL(await res.blob());
-    const a = document.createElement("a");
-    a.href = url; a.download = file.name; a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  folder: (id: string | null) => request<FolderContents>(`/folders/${id ?? "root"}`),
+  createFolder: (name: string, parentId: string | null) =>
+    request<{ folder: FolderItem }>("/folders", { method: "POST", body: JSON.stringify({ name, parentId }) }),
+  renameFolder: (id: string, name: string) =>
+    request<{ folder: FolderItem }>(`/folders/${id}`, { method: "PATCH", body: JSON.stringify({ name }) }),
+  moveFolder: (id: string, folderId: string | null) =>
+    request<{ folder: FolderItem }>(`/folders/${id}/move`, { method: "PATCH", body: JSON.stringify({ folderId }) }),
+  deleteFolder: (id: string) => request<{ deletedFolders: number; deletedFiles: number }>(`/folders/${id}`, { method: "DELETE" }),
+  moveFile: (id: string, folderId: string | null) =>
+    request<{ file: FileItem }>(`/files/${id}/move`, { method: "PATCH", body: JSON.stringify({ folderId }) }),
+
+  recent: (cursor?: string | null) =>
+    request<{ items: RecentItem[]; nextCursor: string | null }>(`/files/recent?limit=20${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`),
+
+  groups: () => request<{ groups: Group[] }>("/groups"),
+  group: (id: string) => request<{ group: Group }>(`/groups/${id}`),
+  createGroup: (name: string) => request<{ group: Group }>("/groups", { method: "POST", body: JSON.stringify({ name }) }),
+  renameGroup: (id: string, name: string) => request<{ group: Group }>(`/groups/${id}`, { method: "PATCH", body: JSON.stringify({ name }) }),
+  deleteGroup: (id: string) => request<void>(`/groups/${id}`, { method: "DELETE" }),
+  members: (id: string) => request<{ members: Member[] }>(`/groups/${id}/members`),
+  addMember: (id: string, identifier: string) =>
+    request<{ member: Member }>(`/groups/${id}/members`, { method: "POST", body: JSON.stringify({ identifier }) }),
+  setRole: (id: string, userId: number, role: GroupRole) =>
+    request<{ member: Member }>(`/groups/${id}/members/${userId}`, { method: "PATCH", body: JSON.stringify({ role }) }),
+  removeMember: (id: string, userId: number) => request<void>(`/groups/${id}/members/${userId}`, { method: "DELETE" }),
+  groupFiles: (id: string) => request<{ files: GroupFile[] }>(`/groups/${id}/files`),
+  unshare: (groupId: string, fileId: string) => request<void>(`/groups/${groupId}/files/${fileId}`, { method: "DELETE" }),
+
+  async download(file: FileItem, groupId?: string) {
+    const blob = await fetchBlob(file, groupId);
+    save(URL.createObjectURL(blob), file.name, true);
   },
 
-  // XHR rather than fetch so we get upload progress
-  upload(file: File, onProgress: (pct: number) => void) {
+  // records the view, then shows the file in a new tab if it is a type that cannot run script in our origin;
+  // anything else (html, svg, ...) is downloaded instead
+  async open(file: FileItem, groupId?: string) {
+    await request<unknown>(groupId ? `/groups/${groupId}/files/${file.id}/view` : `/files/${file.id}/view`, { method: "POST" });
+    const blob = await fetchBlob(file, groupId);
+    const type = file.type.toLowerCase();
+    if (INLINE_TYPES.has(type)) save(URL.createObjectURL(new Blob([blob], { type })), file.name, false);
+    else save(URL.createObjectURL(blob), file.name, true);
+  },
+
+  // XHR rather than fetch so we get upload progress. into = a private folder (null/undefined = root) or a group's shared space
+  upload(file: File, onProgress: (pct: number) => void, into: { folderId?: string | null; groupId?: string } = {}) {
     return new Promise<FileItem>((resolve, reject) => {
       const xhr = new XMLHttpRequest();
-      xhr.open("POST", `${API_URL}/files/upload`);
+      xhr.open("POST", `${API_URL}${into.groupId ? `/groups/${into.groupId}/files/upload` : "/files/upload"}`);
       xhr.setRequestHeader("Authorization", `Bearer ${tokenStore.get()}`);
       xhr.upload.onprogress = e => e.lengthComputable && onProgress(Math.round((e.loaded / e.total) * 100));
       xhr.onerror = () => reject(new ApiError(0, "Can't reach lilcloud right now. Check your connection and try again."));
@@ -83,11 +125,31 @@ export const api = {
         else reject(new ApiError(xhr.status, body.message || `Upload failed (${xhr.status})`));
       };
       const form = new FormData();
+      if (into.folderId) form.append("folderId", into.folderId);
       form.append("file", file);
       xhr.send(form);
     });
   },
 };
+
+// only types a browser renders without running script; never html or svg
+const INLINE_TYPES = new Set(["application/pdf", "text/plain", "image/png", "image/jpeg", "image/gif", "image/webp"]);
+
+async function fetchBlob(file: FileItem, groupId?: string) {
+  const path = groupId ? `/groups/${groupId}/files/${file.id}/download` : `/files/${file.id}/download`;
+  const res = await fetch(`${API_URL}${path}`, { headers: { Authorization: `Bearer ${tokenStore.get()}` } });
+  if (!res.ok) throw new ApiError(res.status, res.status === 404 ? "That item no longer exists" : "Download failed");
+  return res.blob();
+}
+
+function save(url: string, name: string, download: boolean) {
+  const a = document.createElement("a");
+  a.href = url;
+  if (download) a.download = name;
+  else { a.target = "_blank"; a.rel = "noopener"; }
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
 
 export const formatSize = (bytes: number) => {
   if (bytes >= 1023.5 * 1024 ** 2) return `${(bytes / 1024 ** 3).toFixed(bytes >= 10 * 1024 ** 3 ? 0 : 1)} GB`;
