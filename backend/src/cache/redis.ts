@@ -6,6 +6,7 @@ export interface CacheClient {
     get(key:string):Promise<string|null>;
     set(key:string,value:string,...opts:(string|number)[]):Promise<unknown>;
     del(...keys:string[]):Promise<number>;
+    send(command:string,args:string[]):Promise<any>;
     close?():void;
 }
 
@@ -36,6 +37,6 @@ export const connectRedis=async()=>{
 export const setRedis=(c:CacheClient|null)=>{ client=c; initialised=true; }
 
 export const closeRedis=()=>{
-    try{ client?.close?.(); }catch{}
+    try{ if(client) (client as any).onclose=undefined; client?.close?.(); }catch{} // a deliberate close is not an error to log
     client=null; initialised=false;
 }

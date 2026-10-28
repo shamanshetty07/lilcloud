@@ -62,6 +62,16 @@ const readVersion=async(r:NonNullable<ReturnType<typeof getRedis>>,scope:string)
     return again;
 }
 
+// version token and data in ONE round trip (the data key depends on the token, so two plain GETs would cost two).
+// returns false when the scope has no token yet. the script only reads, so it is safe on any redis >= 2.6
+const READ_SCRIPT="local v=redis.call('GET',KEYS[1]) if not v then return false end return {v,redis.call('GET',ARGV[1]..v..ARGV[2]) or false}";
+
+const readEntry=async(r:NonNullable<ReturnType<typeof getRedis>>,scope:string,key:string):Promise<{ver:string,raw:string|null}>=>{
+    const res=await withTimeout(r.send("EVAL",[READ_SCRIPT,"1",versionKey(scope),`${k("data",scope)}:`,`:${key}`]));
+    if(Array.isArray(res) && typeof res[0]==="string") return {ver:res[0],raw:typeof res[1]==="string"?res[1]:null};
+    return {ver:await readVersion(r,scope),raw:null}; // first use of this scope
+}
+
 type Options<T>={scope:string,key:string,ttl:number,load:()=>Promise<T>,validate?:(v:unknown)=>v is T};
 
 // returns cached data on a hit, otherwise runs load() (database), stores the result and returns it.
@@ -71,9 +81,8 @@ export const cached=async<T>(o:Options<T>):Promise<T>=>{
     if(!r || now()<taintedUntil) return o.load();
     let dataKey:string;
     try{
-        const ver=await readVersion(r,o.scope);
+        const {ver,raw}=await readEntry(r,o.scope,o.key);
         dataKey=k("data",o.scope,ver,o.key);
-        const raw=await withTimeout(r.get(dataKey));
         if(raw!==null){
             try{
                 const parsed:unknown=JSON.parse(raw);
@@ -112,6 +121,9 @@ export const invalidate=async(...scopeList:string[])=>{
         taintedUntil=now()+MAX_TTL*1000;
     }
 }
+
+// false when REDIS_URL is unset: callers skip the extra lookups that only exist to find what to invalidate
+export const cacheOn=()=>getRedis()!==null;
 
 // test hook
 export const resetCacheState=()=>{ downUntil=0; taintedUntil=0; }

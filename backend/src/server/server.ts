@@ -12,5 +12,10 @@ const server=app.listen(PORT,()=>{
     console.log(`server is running no ${PORT}`)
 })
 for(const sig of ["SIGINT","SIGTERM"] as const){
-    process.on(sig,()=>{ closeRedis(); server.close(()=>process.exit(0)); });
+    process.on(sig,()=>{
+        closeRedis();
+        // keep-alive connections can hold close() open, so do not wait forever
+        setTimeout(()=>process.exit(0),3000).unref();
+        server.close(()=>process.exit(0));
+    });
 }

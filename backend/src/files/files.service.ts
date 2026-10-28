@@ -4,7 +4,7 @@ import { extname } from "node:path";
 import { storage, isValidKey } from "./storage.ts";
 import { PLANS, currentPlanFor } from "../plans/plans.ts";
 import { notFound } from "../lib/errors.ts";
-import { cached, invalidate, hash, scopes, TTL } from "../cache/cache.ts";
+import { cached, cacheOn, invalidate, hash, scopes, TTL } from "../cache/cache.ts";
 
 type Db=typeof prisma|Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
@@ -12,7 +12,7 @@ type Db=typeof prisma|Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 // owner's recents and the groups the files are shared in. looked up before a delete (the rows cascade away) and
 // inside the move transaction, then invalidated once the change has committed
 export const cacheScopesFor=async(db:Db,fileIds:string[])=>{
-    if(!fileIds.length) return [];
+    if(!cacheOn() || !fileIds.length) return [];
     const where={file_id:{in:fileIds}};
     const [owners,holders,links]=await Promise.all([
         db.file.findMany({where,select:{owner_id:true},distinct:["owner_id"]}),
@@ -84,6 +84,7 @@ export const uploadFileService=async(data:uploadData)=>{
     if(usage.usedBytes+data.size>usage.limitBytes) throw new QuotaExceededError();
     const fileId=randomUUID();
     await storage.commit(data.tempPath,fileId);
+    let created:Awaited<ReturnType<typeof prisma.file.create>>;
     try{
         // folder / membership are checked in the same transaction that writes the rows, so a
         // membership revoked a moment ago cannot slip an upload through
@@ -108,13 +109,15 @@ export const uploadFileService=async(data:uploadData)=>{
                 }
             });
         });
-        await invalidate(scopes.userFiles(data.ownerId),...(data.groupId?[scopes.group(data.groupId)]:[]));
-        return {file:toDto(file)};
+        created=file;
     }
     catch(err){
         await storage.remove(fileId).catch(()=>{});
         throw err;
     }
+    // outside the try: the row is committed, so nothing here may remove the stored content
+    await invalidate(scopes.userFiles(data.ownerId),...(data.groupId?[scopes.group(data.groupId)]:[]));
+    return {file:toDto(created)};
 }
 
 // owner, or a user holding the needed permission (OWNER implies all)
