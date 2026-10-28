@@ -1,6 +1,7 @@
 import { prisma } from "../lib/prisma.ts";
 import { toDto, findAccessibleFile, readFilter } from "./files.service.ts";
 import { notFound, badRequest } from "../lib/errors.ts";
+import { cached, invalidate, hash, scopes, TTL } from "../cache/cache.ts";
 
 export const MAX_RECENT=50;
 
@@ -15,6 +16,7 @@ export const recordViewService=async(userId:number,fileId:string)=>{
         create:{user_id:userId,file_id:file.file_id},
         update:{viewed_at:new Date()}
     }).catch(err=>{ throw (err as {code?:string}).code==="P2003"?notFound("File not found"):err; });
+    await invalidate(scopes.userRecent(userId));
     return {fileId:file.file_id,viewedAt:view.viewed_at};
 }
 
@@ -29,6 +31,14 @@ const parseCursor=(cursor:string)=>{
 export const listRecentService=async(userId:number,limit:number,cursor?:string)=>{
     const take=Math.min(Math.max(Math.trunc(limit)||20,1),MAX_RECENT);
     const c=cursor?parseCursor(cursor):null;
+    return cached({
+        scope:scopes.userRecent(userId),key:`page:${hash(take,cursor ?? null)}`,ttl:TTL.recent,
+        validate:(v):v is {items:unknown[],nextCursor:string|null}=>Array.isArray((v as any)?.items),
+        load:()=>loadRecent(userId,take,c)
+    });
+}
+
+const loadRecent=async(userId:number,take:number,c:{at:Date,id:number}|null)=>{
     const rows=await prisma.fileViewHistory.findMany({
         where:{
             user_id:userId,

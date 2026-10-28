@@ -4,16 +4,45 @@ import { extname } from "node:path";
 import { storage, isValidKey } from "./storage.ts";
 import { PLANS, currentPlanFor } from "../plans/plans.ts";
 import { notFound } from "../lib/errors.ts";
+import { cached, invalidate, hash, scopes, TTL } from "../cache/cache.ts";
+
+type Db=typeof prisma|Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+
+// every cache scope a change to these files can touch: the owner's and any permission holder's file lists, the
+// owner's recents and the groups the files are shared in. looked up before a delete (the rows cascade away) and
+// inside the move transaction, then invalidated once the change has committed
+export const cacheScopesFor=async(db:Db,fileIds:string[])=>{
+    if(!fileIds.length) return [];
+    const where={file_id:{in:fileIds}};
+    const [owners,holders,links]=await Promise.all([
+        db.file.findMany({where,select:{owner_id:true},distinct:["owner_id"]}),
+        db.filePermission.findMany({where,select:{user_id:true},distinct:["user_id"]}),
+        db.groupFile.findMany({where,select:{group_id:true},distinct:["group_id"]})
+    ]);
+    return [
+        ...owners.flatMap(o=>[scopes.userFiles(o.owner_id),scopes.userRecent(o.owner_id)]),
+        ...holders.map(h=>scopes.userFiles(h.user_id)),
+        ...links.map(l=>scopes.group(l.group_id))
+    ];
+}
 
 export class QuotaExceededError extends Error {
     constructor(){ super("QUOTA_EXCEEDED"); }
 }
 
-export const getUsageService=async(userId:number)=>{
+// always live: the upload quota check must never read a cached total
+const usageNow=async(userId:number)=>{
     const sum=await prisma.file.aggregate({where:{owner_id:userId},_sum:{file_size:true}});
     const plan=currentPlanFor(userId);
     return {plan,usedBytes:Number(sum._sum.file_size ?? 0),limitBytes:PLANS[plan].limitBytes};
 }
+
+// dashboard numbers (GET /files/usage) may come from the cache
+export const getUsageService=(userId:number)=>cached({
+    scope:scopes.userFiles(userId),key:"usage",ttl:TTL.dashboard,
+    load:()=>usageNow(userId),
+    validate:(v):v is Awaited<ReturnType<typeof usageNow>>=>typeof (v as any)?.usedBytes==="number" && typeof (v as any)?.limitBytes==="number"
+});
 
 type uploadData={
     ownerId:number,
@@ -51,7 +80,7 @@ export const toDto=(file:{file_id:string,file_name:string,file_size:bigint,file_
 // the file id doubles as the storage key. content is stored first so a failed
 // write never leaves a database row pointing at nothing
 export const uploadFileService=async(data:uploadData)=>{
-    const usage=await getUsageService(data.ownerId);
+    const usage=await usageNow(data.ownerId);
     if(usage.usedBytes+data.size>usage.limitBytes) throw new QuotaExceededError();
     const fileId=randomUUID();
     await storage.commit(data.tempPath,fileId);
@@ -79,6 +108,7 @@ export const uploadFileService=async(data:uploadData)=>{
                 }
             });
         });
+        await invalidate(scopes.userFiles(data.ownerId),...(data.groupId?[scopes.group(data.groupId)]:[]));
         return {file:toDto(file)};
     }
     catch(err){
@@ -106,30 +136,39 @@ export const readFilter=(userId:number)=>({
 
 // folderId: undefined = everything the user can read through ownership/permissions (original behaviour),
 // null = the root of their own storage, uuid = that folder (must be theirs). group files are never listed here
-export const listFilesService=async(userId:number,folderId?:string|null)=>{
-    if(folderId){
-        const folder=await prisma.folder.findFirst({where:{folder_id:folderId,owner_id:userId},select:{folder_id:true}});
-        if(!folder) throw notFound("Folder not found");
+// cached per user (the key is scoped to the authenticated user, and only the owner can ever populate a folder entry)
+export const listFilesService=(userId:number,folderId?:string|null)=>cached({
+    scope:scopes.userFiles(userId),key:`list:${hash(folderId===undefined?"all":folderId)}`,ttl:TTL.folder,
+    validate:(v):v is {files:ReturnType<typeof toDto>[]}=>Array.isArray((v as any)?.files),
+    load:async()=>{
+        if(folderId){
+            const folder=await prisma.folder.findFirst({where:{folder_id:folderId,owner_id:userId},select:{folder_id:true}});
+            if(!folder) throw notFound("Folder not found");
+        }
+        const files=await prisma.file.findMany({
+            where:folderId===undefined?accessFilter(userId,"READ"):{owner_id:userId,folder_id:folderId},
+            orderBy:{uploaded_at:"desc"}
+        });
+        return {files:files.map(toDto)};
     }
-    const files=await prisma.file.findMany({
-        where:folderId===undefined?accessFilter(userId,"READ"):{owner_id:userId,folder_id:folderId},
-        orderBy:{uploaded_at:"desc"}
-    });
-    return {files:files.map(toDto)};
-}
+});
 
 // only the owner can organise a file; null moves it back to the root
 export const moveFileService=async(userId:number,fileId:string,folderId:string|null)=>{
     if(!isValidKey(fileId)) throw notFound("File not found");
-    return prisma.$transaction(async tx=>{
+    const {dto,touched}=await prisma.$transaction(async tx=>{
         const file=await tx.file.findFirst({where:{file_id:fileId,owner_id:userId}});
         if(!file) throw notFound("File not found");
         if(folderId){
             const folder=await tx.folder.findFirst({where:{folder_id:folderId,owner_id:userId},select:{folder_id:true}});
             if(!folder) throw notFound("Folder not found");
         }
-        return toDto(await tx.file.update({where:{file_id:fileId},data:{folder_id:folderId}}));
+        const dto=toDto(await tx.file.update({where:{file_id:fileId},data:{folder_id:folderId}}));
+        return {dto,touched:await cacheScopesFor(tx,[fileId])};
     });
+    // one user scope covers both the source and the destination folder listing
+    await invalidate(...touched);
+    return dto;
 }
 
 // returns null for both "does not exist" and "not yours" so ids cannot be probed
@@ -139,6 +178,8 @@ export const findAccessibleFile=async(userId:number,fileId:string,permission:"RE
 }
 
 export const deleteFileService=async(fileId:string)=>{
+    const touched=await cacheScopesFor(prisma,[fileId]);
     await prisma.file.delete({where:{file_id:fileId}});
+    await invalidate(...touched);
     await storage.remove(fileId).catch(err=>console.error("orphaned file left on disk:",fileId,err));
 }

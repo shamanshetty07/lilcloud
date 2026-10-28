@@ -17,6 +17,9 @@ export const env = {
     STORAGE_DIR: resolve(process.env.STORAGE_DIR || "uploads"),
     // comma separated list of frontend origins allowed to call the api, e.g. https://lilcloud.vercel.app
     CORS_ORIGINS: (process.env.CORS_ORIGINS ?? "").split(",").map(o=>o.trim()).filter(Boolean),
+    // optional: without it the api runs uncached. rediss:// for TLS (e.g. Upstash)
+    REDIS_URL: process.env.REDIS_URL || undefined,
+    REDIS_KEY_PREFIX: process.env.REDIS_KEY_PREFIX || "lilcloud",
     PORT: process.env.PORT,
     DATABASE_URL: process.env.DATABASE_URL,
    JWT_SECRET:process.env.JWT_SECRET,

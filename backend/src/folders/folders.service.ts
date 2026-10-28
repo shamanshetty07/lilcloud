@@ -2,6 +2,8 @@ import { prisma } from "../lib/prisma.ts";
 import { storage } from "../files/storage.ts";
 import { toDto } from "../files/files.service.ts";
 import { notFound, conflict, badRequest, isUniqueViolation, isUuid } from "../lib/errors.ts";
+import { cached, invalidate, scopes, TTL } from "../cache/cache.ts";
+import { cacheScopesFor } from "../files/files.service.ts";
 
 export const MAX_DEPTH=50;
 
@@ -43,7 +45,7 @@ const chainOf=(tx:Tx|typeof prisma,folderId:string)=>tx.$queryRaw<{folder_id:str
 
 export const createFolderService=async(userId:number,name:string,parentId:string|null)=>{
     try{
-        return await prisma.$transaction(async tx=>{
+        const folder=await prisma.$transaction(async tx=>{
             await lockOwner(tx,userId);
             if(parentId){
                 await ownedFolder(tx,userId,parentId);
@@ -51,6 +53,8 @@ export const createFolderService=async(userId:number,name:string,parentId:string
             }
             return toFolderDto(await tx.folder.create({data:{owner_id:userId,folder_name:name,parent_folder_id:parentId}}));
         });
+        await invalidate(scopes.userFiles(userId));
+        return folder;
     }
     catch(err){
         if(isUniqueViolation(err)) throw conflict(DUPLICATE);
@@ -59,7 +63,14 @@ export const createFolderService=async(userId:number,name:string,parentId:string
 }
 
 // id null = the root of the user's storage
-export const getFolderContentsService=async(userId:number,id:string|null)=>{
+// the key is scoped to the authenticated user, so a hit can only ever be that user's own folder
+export const getFolderContentsService=(userId:number,id:string|null)=>cached({
+    scope:scopes.userFiles(userId),key:`folder:${id ?? "root"}`,ttl:TTL.folder,
+    validate:(v):v is Awaited<ReturnType<typeof loadFolderContents>>=>Array.isArray((v as any)?.files) && Array.isArray((v as any)?.folders),
+    load:()=>loadFolderContents(userId,id)
+});
+
+const loadFolderContents=async(userId:number,id:string|null)=>{
     const folder=id?await ownedFolder(prisma,userId,id):null;
     const [folders,files,chain]=await Promise.all([
         prisma.folder.findMany({where:{owner_id:userId,parent_folder_id:id},orderBy:{folder_name:"asc"}}),
@@ -77,7 +88,9 @@ export const getFolderContentsService=async(userId:number,id:string|null)=>{
 export const renameFolderService=async(userId:number,id:string,name:string)=>{
     await ownedFolder(prisma,userId,id);
     try{
-        return toFolderDto(await prisma.folder.update({where:{folder_id:id},data:{folder_name:name}}));
+        const folder=toFolderDto(await prisma.folder.update({where:{folder_id:id},data:{folder_name:name}}));
+        await invalidate(scopes.userFiles(userId));
+        return folder;
     }
     catch(err){
         if(isUniqueViolation(err)) throw conflict(DUPLICATE);
@@ -87,7 +100,7 @@ export const renameFolderService=async(userId:number,id:string,name:string)=>{
 
 export const moveFolderService=async(userId:number,id:string,newParentId:string|null)=>{
     try{
-        return await prisma.$transaction(async tx=>{
+        const folder=await prisma.$transaction(async tx=>{
             await lockOwner(tx,userId);
             const folder=await ownedFolder(tx,userId,id);
             if(newParentId){
@@ -101,6 +114,9 @@ export const moveFolderService=async(userId:number,id:string,newParentId:string|
             if(folder.parent_folder_id===newParentId) return toFolderDto(folder);
             return toFolderDto(await tx.folder.update({where:{folder_id:id},data:{parent_folder_id:newParentId}}));
         });
+        // old and new parent listings both live in the owner's scope
+        await invalidate(scopes.userFiles(userId));
+        return folder;
     }
     catch(err){
         if(isUniqueViolation(err)) throw conflict(DUPLICATE);
@@ -124,6 +140,7 @@ export const deleteFolderService=async(userId:number,id:string)=>{
             SELECT folder_id, depth FROM tree`;
         const folderIds=tree.map(t=>t.folder_id);
         const files=await tx.file.findMany({where:{folder_id:{in:folderIds}},select:{file_id:true}});
+        const touched=await cacheScopesFor(tx,files.map(f=>f.file_id));
         // views, group links and permissions cascade from the file row
         await tx.file.deleteMany({where:{file_id:{in:files.map(f=>f.file_id)}}});
         // parent foreign keys are RESTRICT, so go deepest level first
@@ -131,8 +148,9 @@ export const deleteFolderService=async(userId:number,id:string)=>{
         for(let d=maxDepth;d>=0;d--){
             await tx.folder.deleteMany({where:{folder_id:{in:tree.filter(t=>t.depth===d).map(t=>t.folder_id)}}});
         }
-        return {files:files.map(f=>f.file_id),folders:folderIds.length};
+        return {files:files.map(f=>f.file_id),folders:folderIds.length,touched};
     });
+    await invalidate(scopes.userFiles(userId),...fileIds.touched);
     for(const fileId of fileIds.files){
         await storage.remove(fileId).catch(err=>console.error("orphaned file left on disk:",fileId,err));
     }
