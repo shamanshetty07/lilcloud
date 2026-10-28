@@ -270,6 +270,52 @@ describe.skipIf(!enabled)("redis cache",()=>{
         });
     });
 
+    describe("authentication in front of the cache",()=>{
+        test("warm entries are never served without a valid token, and a client-supplied identity is ignored",async()=>{
+            const fa=await folder(A,"mine"); await upload(A,"a.txt",{folderId:fa});
+            const g=(await A("POST","/groups",{name:"t"})).body.group.id;
+            const paths=["/files","/files/usage","/files/recent","/folders/root",`/folders/${fa}`,`/groups/${g}`,`/groups/${g}/files`,`/groups/${g}/members`];
+            for(const p of paths) expect((await A("GET",p)).status).toBe(200); // everything warm
+            const jwt=(await import("jsonwebtoken")).default;
+            const expired=jwt.sign({id:a.id,email:a.email},process.env.JWT_SECRET!,{expiresIn:-10});
+            const forged=jwt.sign({id:a.id,email:a.email},"not-the-secret");
+            for(const p of paths){
+                expect((await http()("GET",p)).status).toBe(401);
+                expect((await http(expired)("GET",p)).status).toBe(401);
+                expect((await http(forged)("GET",p)).status).toBe(401);
+            }
+            // bob asking with alice's id in every place a client could put one still gets bob's data / a 404
+            const spoof=`?userId=${a.id}&user_id=${a.id}&ownerId=${a.id}`;
+            expect((await B("GET",`/files${spoof}`)).body.files).toEqual([]);
+            expect((await B("GET",`/folders/root${spoof}`)).body.files).toEqual([]);
+            expect((await B("GET",`/files/usage${spoof}`)).body.usedBytes).toBe(0);
+            expect((await B("GET",`/folders/${fa}${spoof}`)).status).toBe(404);
+            expect((await B("GET",`/groups/${g}/files${spoof}`)).status).toBe(404);
+        });
+
+        test("a deactivated account loses access even though its entries are warm",async()=>{
+            await upload(A); expect((await A("GET","/files")).status).toBe(200);
+            await prisma.user.update({where:{user_id:a.id},data:{is_active:false}});
+            expect((await A("GET","/files")).status).toBe(401);
+            expect((await A("GET","/files/recent")).status).toBe(401);
+        });
+    });
+
+    describe("different queries do not collide",()=>{
+        test("each folder, root, all and each page has its own entry",async()=>{
+            const f1=await folder(A,"one"), f2=await folder(A,"two");
+            const i1=await upload(A,"1.txt",{folderId:f1}), i2=await upload(A,"2.txt",{folderId:f2}), i3=await upload(A,"3.txt");
+            for(let round=0;round<2;round++){ // second round is served from the cache and must be identical
+                expect(ids(await A("GET",`/files?folderId=${f1}`))).toEqual([i1]);
+                expect(ids(await A("GET",`/files?folderId=${f2}`))).toEqual([i2]);
+                expect(ids(await A("GET","/files?folderId=root"))).toEqual([i3]);
+                expect(ids(await A("GET","/files"))).toEqual([i1,i2,i3].sort());
+                expect((await A("GET",`/folders/${f1}`)).body.files.map((f:any)=>f.id)).toEqual([i1]);
+                expect((await A("GET",`/folders/${f2}`)).body.files.map((f:any)=>f.id)).toEqual([i2]);
+            }
+        });
+    });
+
     describe("resilience",()=>{
         test("requests keep working when redis is down",async()=>{
             const id=await upload(A);

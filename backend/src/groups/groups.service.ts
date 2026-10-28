@@ -1,7 +1,7 @@
 import { prisma } from "../lib/prisma.ts";
 import { toDto } from "../files/files.service.ts";
 import { notFound, forbidden, conflict, isUniqueViolation, isUuid } from "../lib/errors.ts";
-import { cached, invalidate, scopes, TTL } from "../cache/cache.ts";
+import { cached, cacheOn, invalidate, scopes, TTL } from "../cache/cache.ts";
 
 type Tx=Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 type Role="admin"|"member";
@@ -36,7 +36,7 @@ const toGroupBase=(g:GroupRow)=>({
 const withRole=(b:ReturnType<typeof toGroupBase>,role:Role)=>({id:b.id,name:b.name,role,memberCount:b.memberCount,fileCount:b.fileCount,createdAt:b.createdAt,updatedAt:b.updatedAt});
 const toGroupDto=(g:GroupRow,role:Role)=>withRole(toGroupBase(g),role);
 // user ids of everyone in the group right now; their recents may list files the group was exposing
-const memberRecents=async(db:Tx|typeof prisma,groupId:string)=>
+const memberRecents=async(db:Tx|typeof prisma,groupId:string)=>!cacheOn()?[]:
     (await db.groupMember.findMany({where:{group_id:groupId},select:{user_id:true}})).map(m=>scopes.userRecent(m.user_id));
 const counts={select:{members:true,files:true}} as const;
 

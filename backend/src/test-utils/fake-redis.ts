@@ -21,6 +21,15 @@ export class FakeRedis implements CacheClient {
         this.store.set(key,{value,expiresAt:ex>=0?Date.now()+Number(opts[ex+1])*1000:null});
         return "OK";
     }
+    // emulates the cache's single round trip read script: [version, data] or null when the scope has no version yet
+    async send(command:string,args:string[]){
+        this.guard();
+        if(command!=="EVAL") throw new Error(`FakeRedis: unsupported ${command}`);
+        const [,,versionKey,prefix,suffix]=args as [string,string,string,string,string];
+        const v=this.live(versionKey)?.value;
+        if(!v) return null;
+        return [v,this.live(`${prefix}${v}${suffix}`)?.value ?? null];
+    }
     async del(...keys:string[]){ this.guard(); return keys.filter(k=>this.store.delete(k)).length; }
     dataKeys(){ return [...this.store.keys()].filter(k=>k.includes(":data:")); }
 }
