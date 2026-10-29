@@ -135,8 +135,8 @@ export default function Docs() {
           <P>Every account includes <B>1 GB of free storage</B>. Your usage is shown on your Storage page. Items in Trash still use storage until you delete them permanently.</P>
           <Table head={["Plan", "Storage", "Price", "Status"]} rows={[
             ["Free", "1 GB", "$0", "Available"],
-            ["Plus", "50 GB", "$20 per year", "Coming soon"],
-            ["Pro", "100 GB", "$50 per year", "Coming soon"],
+            ["Plus", "50 GB", "$5 per year", "Coming soon"],
+            ["Pro", "100 GB", "$15 per year", "Coming soon"],
           ]} />
           <P>Paid plans aren't open yet. You can <Link href="/pricing" className="text-fg underline underline-offset-4">join the waitlist</Link> and we'll email you once they launch. Nothing is charged until you choose to upgrade.</P>
 
