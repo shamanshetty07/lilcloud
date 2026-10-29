@@ -7,6 +7,7 @@ import { notFound } from "../lib/errors.ts";
 import { cached, cacheOn, invalidate, hash, scopes, TTL } from "../cache/cache.ts";
 
 type Db=typeof prisma|Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+const lockOwner=(db:Db,userId:number)=>db.$executeRaw`SELECT pg_advisory_xact_lock(1, ${userId}::int)`;
 
 // every cache scope a change to these files can touch: the owner's and any permission holder's file lists, the
 // owner's recents and the groups the files are shared in. looked up before a delete (the rows cascade away) and
@@ -19,9 +20,11 @@ export const cacheScopesFor=async(db:Db,fileIds:string[])=>{
         db.filePermission.findMany({where,select:{user_id:true},distinct:["user_id"]}),
         db.groupFile.findMany({where,select:{group_id:true},distinct:["group_id"]})
     ]);
+    const groupMembers=links.length?await db.groupMember.findMany({where:{group_id:{in:links.map(link=>link.group_id)}},select:{user_id:true},distinct:["user_id"]}):[];
     return [
         ...owners.flatMap(o=>[scopes.userFiles(o.owner_id),scopes.userRecent(o.owner_id)]),
         ...holders.map(h=>scopes.userFiles(h.user_id)),
+        ...groupMembers.map(m=>scopes.userRecent(m.user_id)),
         ...links.map(l=>scopes.group(l.group_id))
     ];
 }
@@ -90,7 +93,7 @@ export const uploadFileService=async(data:uploadData)=>{
         // membership revoked a moment ago cannot slip an upload through
         const file=await prisma.$transaction(async tx=>{
             if(data.folderId){
-                const folder=await tx.folder.findFirst({where:{folder_id:data.folderId,owner_id:data.ownerId},select:{folder_id:true}});
+                const folder=await tx.folder.findFirst({where:{folder_id:data.folderId,owner_id:data.ownerId,deleted_at:null},select:{folder_id:true}});
                 if(!folder) throw notFound("Folder not found");
             }
             if(data.groupId){
@@ -149,7 +152,7 @@ export const listFilesService=(userId:number,folderId?:string|null)=>cached({
             if(!folder) throw notFound("Folder not found");
         }
         const files=await prisma.file.findMany({
-            where:folderId===undefined?accessFilter(userId,"READ"):{owner_id:userId,folder_id:folderId},
+            where:{deleted_at:null,...(folderId===undefined?accessFilter(userId,"READ"):{owner_id:userId,folder_id:folderId})},
             orderBy:{uploaded_at:"desc"}
         });
         return {files:files.map(toDto)};
@@ -160,10 +163,10 @@ export const listFilesService=(userId:number,folderId?:string|null)=>cached({
 export const moveFileService=async(userId:number,fileId:string,folderId:string|null)=>{
     if(!isValidKey(fileId)) throw notFound("File not found");
     const {dto,touched}=await prisma.$transaction(async tx=>{
-        const file=await tx.file.findFirst({where:{file_id:fileId,owner_id:userId}});
+        const file=await tx.file.findFirst({where:{file_id:fileId,owner_id:userId,deleted_at:null}});
         if(!file) throw notFound("File not found");
         if(folderId){
-            const folder=await tx.folder.findFirst({where:{folder_id:folderId,owner_id:userId},select:{folder_id:true}});
+            const folder=await tx.folder.findFirst({where:{folder_id:folderId,owner_id:userId,deleted_at:null},select:{folder_id:true}});
             if(!folder) throw notFound("Folder not found");
         }
         const dto=toDto(await tx.file.update({where:{file_id:fileId},data:{folder_id:folderId}}));
@@ -177,7 +180,54 @@ export const moveFileService=async(userId:number,fileId:string,folderId:string|n
 // returns null for both "does not exist" and "not yours" so ids cannot be probed
 export const findAccessibleFile=async(userId:number,fileId:string,permission:"READ"|"DELETE")=>{
     if(!isValidKey(fileId)) return null;
-    return prisma.file.findFirst({where:{file_id:fileId,...(permission==="READ"?readFilter(userId):accessFilter(userId,permission))}});
+    return prisma.file.findFirst({where:{file_id:fileId,deleted_at:null,...(permission==="READ"?readFilter(userId):accessFilter(userId,permission))}});
+}
+
+export const listTrashService=async(userId:number)=>{
+    const [files,folders]=await Promise.all([
+        prisma.file.findMany({where:{owner_id:userId,deleted_at:{not:null},OR:[{folder_id:null},{folder:{is:{deleted_at:null}}}]},orderBy:{deleted_at:"desc"}}),
+        prisma.folder.findMany({where:{owner_id:userId,deleted_at:{not:null},OR:[{parent_folder_id:null},{parent:{is:{deleted_at:null}}}]},orderBy:{deleted_at:"desc"}})
+    ]);
+    return {files:files.map(file=>({...toDto(file),deletedAt:file.deleted_at})),folders:folders.map(folder=>({
+        id:folder.folder_id,name:folder.folder_name,parentId:folder.parent_folder_id,deletedAt:folder.deleted_at
+    }))};
+}
+
+export const restoreFileService=async(userId:number,fileId:string)=>{
+    if(!isValidKey(fileId)) throw notFound("File not found");
+    const touched=await prisma.$transaction(async tx=>{
+        await lockOwner(tx,userId);
+        const file=await tx.file.findFirst({where:{file_id:fileId,owner_id:userId,deleted_at:{not:null}}});
+        if(!file) throw notFound("File not found");
+        if(file.folder_id){
+            const folder=await tx.folder.findFirst({where:{folder_id:file.folder_id,owner_id:userId,deleted_at:null},select:{folder_id:true}});
+            if(!folder) throw notFound("File not found");
+        }
+        const scopesToInvalidate=await cacheScopesFor(tx,[fileId]);
+        await tx.file.update({where:{file_id:fileId},data:{deleted_at:null}});
+        return scopesToInvalidate;
+    });
+    await invalidate(...touched,scopes.userFiles(userId));
+}
+
+export const trashFileService=async(userId:number,fileId:string)=>{
+    if(!isValidKey(fileId)) throw notFound("File not found");
+    const touched=await prisma.$transaction(async tx=>{
+        await lockOwner(tx,userId);
+        const file=await tx.file.findFirst({where:{file_id:fileId,owner_id:userId,deleted_at:null},select:{file_id:true}});
+        if(!file) throw notFound("File not found");
+        const scopesToInvalidate=await cacheScopesFor(tx,[fileId]);
+        await tx.file.update({where:{file_id:fileId},data:{deleted_at:new Date()}});
+        return scopesToInvalidate;
+    });
+    await invalidate(...touched,scopes.userFiles(userId));
+}
+
+export const permanentlyDeleteTrashedFileService=async(userId:number,fileId:string)=>{
+    if(!isValidKey(fileId)) throw notFound("File not found");
+    const file=await prisma.file.findFirst({where:{file_id:fileId,owner_id:userId,deleted_at:{not:null}},select:{file_id:true}});
+    if(!file) throw notFound("File not found");
+    await deleteFileService(fileId);
 }
 
 export const deleteFileService=async(fileId:string)=>{

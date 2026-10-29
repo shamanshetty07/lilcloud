@@ -5,6 +5,7 @@ import { Logo } from "./Logo.tsx";
 const tabs = [
   { href: "/app", label: "Files" },
   { href: "/app/recent", label: "Recently viewed" },
+  { href: "/app/trash", label: "Trash" },
   { href: "/app/groups", label: "Shared spaces" },
 ];
 

@@ -97,12 +97,15 @@ describe.skipIf(!enabled)("recently viewed",()=>{
         expect((await B("POST",`/files/${fileId}/view`)).status).toBe(404);
     });
 
-    test("deleted files drop out of the history without errors",async()=>{
+    test("trashed files drop out of the history and return when restored",async()=>{
         const id=await upload("gone.txt");
         await A("POST",`/files/${id}/view`);
         await A("DELETE",`/files/${id}`);
         expect((await recent()).items.map((i:any)=>i.id)).not.toContain(id);
-        expect(await prisma.fileViewHistory.count({where:{file_id:id}})).toBe(0);
+        expect(await prisma.fileViewHistory.count({where:{file_id:id}})).toBe(1);
+        expect((await A("GET","/files/trash")).body.files.map((f:any)=>f.id)).toContain(id);
+        expect((await A("POST",`/files/trash/${id}/restore`)).status).toBe(204);
+        expect((await recent()).items.map((i:any)=>i.id)).toContain(id);
     });
 
     test("the database enforces one row per user and file",async()=>{

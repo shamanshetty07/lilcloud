@@ -112,14 +112,28 @@ describe.skipIf(!enabled)("folders",()=>{
         expect((await A("POST","/files/upload",form("bad.txt","x",{folderId:"nope"}))).status).toBe(400);
     });
 
-    test("deleting a folder removes the whole subtree, its files and their stored content",async()=>{
+    test("trashing a folder keeps its subtree recoverable until permanently deleted",async()=>{
         const top=await mk(A,"DelTop"), sub=await mk(A,"DelSub",top.id);
         const f1=(await A("POST","/files/upload",form("d1.txt","1",{folderId:top.id}))).body.file;
         const f2=(await A("POST","/files/upload",form("d2.txt","2",{folderId:sub.id}))).body.file;
         const keep=(await A("POST","/files/upload",form("keep.txt","3"))).body.file;
         const r=await A("DELETE",`/folders/${top.id}`);
-        expect(r.status).toBe(200);
-        expect(r.body).toEqual({deletedFolders:2,deletedFiles:2});
+        expect(r.status).toBe(204);
+        expect(await prisma.folder.count({where:{folder_id:{in:[top.id,sub.id]},deleted_at:{not:null}}})).toBe(2);
+        expect(await prisma.file.count({where:{file_id:{in:[f1.id,f2.id]},deleted_at:{not:null}}})).toBe(2);
+        expect((await A("GET",`/folders/${top.id}`)).status).toBe(404);
+        const trash=(await A("GET","/files/trash")).body;
+        expect(trash.folders.map((folder:any)=>folder.id)).toContain(top.id);
+        expect(trash.folders.map((folder:any)=>folder.id)).not.toContain(sub.id);
+        expect(trash.files.map((file:any)=>file.id)).not.toContain(f1.id);
+        expect(trash.files.map((file:any)=>file.id)).not.toContain(f2.id);
+        expect((await A("POST",`/folders/trash/${top.id}/restore`)).status).toBe(204);
+        expect((await A("GET",`/folders/${top.id}`)).status).toBe(200);
+        expect((await A("GET",`/files/${f1.id}/download`)).status).toBe(200);
+        expect((await A("DELETE",`/folders/${top.id}`)).status).toBe(204);
+        const purged=await A("DELETE",`/folders/trash/${top.id}/permanent`);
+        expect(purged.status).toBe(200);
+        expect(purged.body).toEqual({deletedFolders:2,deletedFiles:2});
         expect(await prisma.folder.count({where:{folder_id:{in:[top.id,sub.id]}}})).toBe(0);
         expect(await prisma.file.count({where:{file_id:{in:[f1.id,f2.id]}}})).toBe(0);
         await expect(storage.open(f1.id)).rejects.toMatchObject({code:"NOT_FOUND"});

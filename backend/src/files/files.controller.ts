@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { rm } from "node:fs/promises";
 import { z } from "zod";
-import { uploadFileService, listFilesService, findAccessibleFile, deleteFileService, getUsageService, moveFileService, QuotaExceededError } from "./files.service.ts";
+import { uploadFileService, listFilesService, findAccessibleFile, deleteFileService, getUsageService, moveFileService, QuotaExceededError, listTrashService, restoreFileService, trashFileService, permanentlyDeleteTrashedFileService } from "./files.service.ts";
 import { recordViewService, listRecentService } from "./views.service.ts";
 import { DomainError, sendError } from "../lib/errors.ts";
 import { storage, StorageError } from "./storage.ts";
@@ -108,7 +108,8 @@ export const remove=async (req:Request,res:Response)=>{
     try{
         const file=await findAccessibleFile(userId,String(req.params.id),"DELETE");
         if(!file) return res.status(404).json({message:"File not found"});
-        await deleteFileService(file.file_id);
+        if(file.owner_id===userId) await trashFileService(userId,file.file_id);
+        else await deleteFileService(file.file_id);
         void logActivity({eventType:"file_delete",status:"success",userId,fileId:file.file_id,ipAddress:req.ip});
         return res.status(204).end();
     }
@@ -116,6 +117,24 @@ export const remove=async (req:Request,res:Response)=>{
         console.error("delete failed:",err);
         return res.status(500).json({message:"Delete failed"});
     }
+}
+
+export const trash=async(req:Request,res:Response)=>{
+    try { return res.json(await listTrashService((req as any).userId)); }
+    catch(err) { return sendError(res,err,"Could not load trash"); }
+}
+
+export const restoreFromTrash=async(req:Request,res:Response)=>{
+    try { await restoreFileService((req as any).userId,String(req.params.id)); return res.status(204).end(); }
+    catch(err) { return sendError(res,err,"Could not restore file"); }
+}
+
+export const permanentlyDelete=async(req:Request,res:Response)=>{
+    const userId=(req as any).userId;
+    try {
+        await permanentlyDeleteTrashedFileService(userId,String(req.params.id));
+        return res.status(204).end();
+    } catch(err) { return sendError(res,err,"Could not permanently delete file"); }
 }
 
 export const move=async (req:Request,res:Response)=>{

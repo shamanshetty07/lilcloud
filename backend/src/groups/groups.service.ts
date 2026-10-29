@@ -38,7 +38,7 @@ const toGroupDto=(g:GroupRow,role:Role)=>withRole(toGroupBase(g),role);
 // user ids of everyone in the group right now; their recents may list files the group was exposing
 const memberRecents=async(db:Tx|typeof prisma,groupId:string)=>!cacheOn()?[]:
     (await db.groupMember.findMany({where:{group_id:groupId},select:{user_id:true}})).map(m=>scopes.userRecent(m.user_id));
-const counts={select:{members:true,files:true}} as const;
+const counts={select:{members:true,files:{where:{file:{deleted_at:null}}}}} as const;
 
 export const createGroupService=async(userId:number,name:string)=>{
     const group=await prisma.storageGroup.create({
@@ -176,7 +176,7 @@ export const listGroupFilesService=async(userId:number,groupId:string)=>{
         scope:scopes.group(groupId),key:"files",ttl:TTL.group,
         validate:(v):v is {files:unknown[]}=>Array.isArray((v as any)?.files),
         load:async()=>{
-            const links=await prisma.groupFile.findMany({where:{group_id:groupId},include:linkInclude,orderBy:{shared_at:"desc"}});
+            const links=await prisma.groupFile.findMany({where:{group_id:groupId,file:{deleted_at:null}},include:linkInclude,orderBy:{shared_at:"desc"}});
             return {files:links.map(toGroupFileDto)};
         }
     });
@@ -187,7 +187,7 @@ export const findGroupFile=async(userId:number,groupId:string,fileId:string)=>{
     await requireMember(userId,groupId);
     if(!isUuid(fileId)) throw notFound("File not found");
     const link=await prisma.groupFile.findUnique({where:{group_id_file_id:{group_id:groupId,file_id:fileId}},include:{file:true}});
-    if(!link) throw notFound("File not found");
+    if(!link || link.file.deleted_at) throw notFound("File not found");
     return link;
 }
 
@@ -196,7 +196,7 @@ export const shareFileService=async(userId:number,groupId:string,fileId:string)=
     try{
         const dto=await prisma.$transaction(async tx=>{
             await requireMember(userId,groupId,tx);
-            const file=await tx.file.findFirst({where:{file_id:fileId,owner_id:userId},select:{file_id:true}});
+            const file=await tx.file.findFirst({where:{file_id:fileId,owner_id:userId,deleted_at:null},select:{file_id:true}});
             if(!file) throw notFound("File not found");
             return toGroupFileDto(await tx.groupFile.create({data:{group_id:groupId,file_id:fileId,shared_by:userId},include:linkInclude}));
         });
