@@ -7,6 +7,7 @@ import { Logo } from "../components/Logo.tsx";
 import { PlanCards } from "../components/PlanCards.tsx";
 import { Reveal } from "../components/Reveal.tsx";
 import { CtaBars } from "../components/CtaBars.tsx";
+import { GitHubLink, REPO_URL } from "../components/GitHubLink.tsx";
 import { IconStack, IconLock, IconGlobe, IconBolt } from "../components/FeatureIcons.tsx";
 
 // page-turn click for the header nav; ignores clicks between links, and a blocked/failed sound is harmless
@@ -42,6 +43,7 @@ export default function Landing() {
             <Link href="/docs" className="hover:text-fg">docs</Link>
           </nav>
           <div className="flex items-center gap-3">
+            <GitHubLink />
             {user
               ? <Link href="/app" className="btn btn-primary">Open my storage →</Link>
               : <Link href="/signin" className="btn btn-primary">Sign in →</Link>}
@@ -126,7 +128,7 @@ export default function Landing() {
       </main>
 
       <footer className="border-t border-line py-8 text-center font-mono text-xs text-muted">
-        lilcloud · simple cloud storage
+        lilcloud · simple cloud storage · <a href={REPO_URL} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4 hover:text-fg">source on GitHub</a>
       </footer>
     </div>
   );

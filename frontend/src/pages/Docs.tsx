@@ -3,6 +3,7 @@ import { Link } from "../lib/router.tsx";
 import { LiquidMetalLink } from "../components/LiquidMetal.tsx";
 import { useAuth } from "../lib/auth.tsx";
 import { Logo } from "../components/Logo.tsx";
+import { GitHubLink } from "../components/GitHubLink.tsx";
 
 const BLOCKED = [
   "exe", "msi", "bat", "cmd", "com", "scr", "pif", "dll", "sys", "vbs", "vbe", "wsf", "ps1", "psm1",
@@ -53,6 +54,7 @@ export default function Docs() {
           <Link href="/"><Logo /></Link>
           <div className="flex items-center gap-3">
             <span className="hidden font-mono text-xs text-muted sm:block">documentation</span>
+            <GitHubLink />
             <Link href={user ? "/app" : "/signin"} className="btn btn-primary">{user ? "Open my storage →" : "Sign in →"}</Link>
           </div>
         </div>
