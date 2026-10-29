@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "../lib/router.tsx";
+import { LiquidMetalLink } from "../components/LiquidMetal.tsx";
 import { useAuth } from "../lib/auth.tsx";
 import { Logo } from "../components/Logo.tsx";
 
@@ -178,7 +179,7 @@ export default function Docs() {
 
           <div className="mt-16 rounded-xl border border-line bg-surface p-8 text-center">
             <p className="text-lg font-semibold tracking-tight">Ready to go?</p>
-            <Link href={user ? "/app" : "/signup"} className="btn btn-primary mt-4">{user ? "Open your storage →" : "Create an account →"}</Link>
+            <LiquidMetalLink href={user ? "/app" : "/signup"} className="mt-4">{user ? "Open your storage →" : "Create an account →"}</LiquidMetalLink>
           </div>
         </main>
       </div>

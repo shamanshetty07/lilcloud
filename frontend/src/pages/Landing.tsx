@@ -1,4 +1,5 @@
 import { Link } from "../lib/router.tsx";
+import { LiquidMetalLink } from "../components/LiquidMetal.tsx";
 import { useAuth } from "../lib/auth.tsx";
 import { Logo } from "../components/Logo.tsx";
 import { PlanCards } from "../components/PlanCards.tsx";
@@ -98,7 +99,7 @@ export default function Landing() {
             </ol>
             <Reveal className="mt-14 flex flex-col items-center gap-4 rounded-xl border border-line bg-surface p-10 text-center">
               <h3 className="text-2xl font-bold tracking-[-0.04em]">Ready to try it?</h3>
-              <Link href={user ? "/app" : "/signup"} className="btn btn-primary">Create an account →</Link>
+              <LiquidMetalLink href={user ? "/app" : "/signup"}>Create an account →</LiquidMetalLink>
             </Reveal>
           </div>
         </section>
