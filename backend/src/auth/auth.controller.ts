@@ -1,6 +1,7 @@
 import { signupService, signinService, meService } from "./auth.service";
 import  type { Request,Response} from "express";
 import { logAuthEvent } from "../activity/auth-log.service.ts";
+import { sendError } from "../lib/errors.ts";
 
 export const signup=async (req:Request,res:Response)=>{
 
@@ -11,9 +12,8 @@ export const signup=async (req:Request,res:Response)=>{
     })
     return res.status(201).json(result);}
     catch(err){
-        return res.status(404).json({
-            message:"User already exists"
-        })
+        // only real conflicts say so; anything else (e.g. database down) is a 500, not a fake "already exists"
+        return sendError(res,err,"We couldn't create your account right now. Please try again shortly.");
     }
 }
 
@@ -28,7 +28,8 @@ export const signin=async (req:Request,res:Response)=>{
         return res.status(200).json(result);
     }
     catch(err){
-        return res.status(401).json({message:"Invalid email or password"});
+        // wrong credentials are a 401; anything else (e.g. database down) must not be reported as a bad password
+        return sendError(res,err,"We couldn't sign you in right now. Please try again shortly.");
     }
 }
 

@@ -1,6 +1,7 @@
 import { string } from "zod"
 import { env } from "../lib/env.ts";
 import { prisma } from "../lib/prisma.ts"
+import { DomainError, conflict } from "../lib/errors.ts";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
@@ -22,10 +23,10 @@ export const  signupService=async(data:signupData)=>{
     });
     if(userExists){
         if(data.username===userExists.username){
-            throw new Error("username already exits");
+            throw conflict("That username is already taken");
         }
         if(data.email===userExists.email){
-            throw new Error("email already exists");
+            throw conflict("An account with that email already exists");
         }
     }
     const hashedpassword=await bcrypt.hash(data.password,10);
@@ -63,11 +64,11 @@ export const signinService=async(data:signinData)=>{
         where:{email:data.email}
     });
     if(!user || !user.is_active){
-        throw new Error("invalid credentials");
+        throw new DomainError(401,"Invalid email or password");
     }
     const passwordMatches=await bcrypt.compare(data.password,user.password_hash);
     if(!passwordMatches){
-        throw new Error("invalid credentials");
+        throw new DomainError(401,"Invalid email or password");
     }
     const token= jwt.sign({
         id:user.user_id,

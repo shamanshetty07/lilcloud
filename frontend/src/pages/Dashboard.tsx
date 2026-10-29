@@ -4,16 +4,22 @@ import { Link, usePath } from "../lib/router.tsx";
 import { AppHeader } from "../components/AppHeader.tsx";
 import { FolderPicker } from "../components/FolderPicker.tsx";
 import { RecentFiles } from "../components/RecentFiles.tsx";
+import { FolderPreview } from "../components/ui/folder-preview.tsx";
 
 type Upload = { key: number; name: string; pct: number; error?: string };
 type Moving = { kind: "file"; item: FileItem } | { kind: "folder"; item: FolderItem };
+type PreviewLine = { name: string; type?: "muted" };
 let uploadKey = 0;
 
-const FolderIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" className="mr-2 inline text-muted" aria-hidden="true">
-    <path d="M1.5 3.5h4l1.5 1.5h7.5v7.5h-13z" strokeLinejoin="round" />
-  </svg>
-);
+const PREVIEW_LINES = 6;
+// what the hover bubble lists for a folder: subfolders first, then files, capped with a "+N more" line
+const summarize = (c: FolderContents): PreviewLine[] => {
+  const names = [...c.folders.map(f => `${f.name}/`), ...c.files.map(f => f.name)];
+  if (names.length === 0) return [{ name: "empty", type: "muted" }];
+  const shown = names.length > PREVIEW_LINES ? names.slice(0, PREVIEW_LINES - 1) : names;
+  const rest = names.length - shown.length;
+  return [...shown.map(name => ({ name })), ...(rest > 0 ? [{ name: `+${rest} more`, type: "muted" as const }] : [])];
+};
 
 export default function Dashboard() {
   const recent = usePath() === "/app/recent";
@@ -28,11 +34,13 @@ export default function Dashboard() {
   const [creating, setCreating] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
   const [moving, setMoving] = useState<Moving | null>(null);
+  const [previews, setPreviews] = useState<Record<string, PreviewLine[]>>({});
   const loadUsage = useCallback(() => { api.usage().then(setUsage).catch(() => {}); }, []);
   const input = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
-    try { setData(await api.folder(folderId)); setError(""); }
+    // contents may have changed, so hover previews are fetched again on demand
+    try { setData(await api.folder(folderId)); setPreviews({}); setError(""); }
     catch (e) {
       setError((e as Error).message);
       // the folder we were in may have been deleted elsewhere: fall back to the top level
@@ -62,6 +70,15 @@ export default function Dashboard() {
 
   const act = async (fn: () => Promise<unknown>) => {
     try { await fn(); } catch (e) { setError((e as Error).message); }
+  };
+
+  // fetched the first time a folder is hovered or focused, then cached until the next load()
+  const peek = (id: string) => {
+    if (previews[id]) return;
+    setPreviews(p => ({ ...p, [id]: [{ name: "loading…", type: "muted" }] }));
+    api.folder(id)
+      .then(c => setPreviews(p => ({ ...p, [id]: summarize(c) })))
+      .catch(() => setPreviews(p => ({ ...p, [id]: [{ name: "couldn't load", type: "muted" }] })));
   };
 
   const match = (name: string) => name.toLowerCase().includes(query.toLowerCase());
@@ -185,12 +202,51 @@ export default function Dashboard() {
           </form>
         )}
 
-        <div className="mt-3 overflow-hidden rounded-xl border border-line">
-          {data === null ? (
-            <p className="p-8 text-center text-sm text-muted">Loading…</p>
-          ) : folders.length + files.length === 0 ? (
-            <p className="p-10 text-center text-sm text-muted">{total === 0 ? (data.folder ? "This folder is empty." : "Nothing here yet. Upload your first item above.") : "Nothing matches your search."}</p>
-          ) : (
+        {data === null ? (
+          <p className="mt-3 rounded-xl border border-line p-8 text-center text-sm text-muted">Loading…</p>
+        ) : folders.length + files.length === 0 ? (
+          <p className="mt-3 rounded-xl border border-line p-10 text-center text-sm text-muted">{total === 0 ? (data.folder ? "This folder is empty." : "Nothing here yet. Upload your first item above.") : "Nothing matches your search."}</p>
+        ) : (<>
+          {folders.length > 0 && (
+            // top padding leaves room for the contents bubble that pops up above the first row
+            <ul className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] gap-x-4 gap-y-8 rounded-xl border border-line px-4 pb-6 pt-12">
+              {folders.map(f => (
+                <li key={f.id} className="flex min-w-0 flex-col items-center gap-2">
+                  <div
+                    role="button" tabIndex={0} aria-label={`Open folder ${f.name}`}
+                    className="w-24 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-line-strong"
+                    onMouseEnter={() => peek(f.id)} onFocus={() => peek(f.id)}
+                    onClick={() => setFolderId(f.id)}
+                    onKeyDown={e => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), setFolderId(f.id))}
+                  >
+                    <FolderPreview variant="lilcloud" size="md" label={renaming?.id === f.id ? undefined : f.name} files={previews[f.id] ?? []} className="w-full" />
+                  </div>
+                  {renaming?.id === f.id ? (
+                    <form className="flex w-full flex-col items-center gap-1" onSubmit={e => { e.preventDefault(); rename(); }}>
+                      <input className="input py-1 text-center text-sm" autoFocus maxLength={100} aria-label="New folder name" value={renaming.name} onChange={e => setRenaming({ id: f.id, name: e.target.value })} />
+                      <span className="inline-flex gap-3 font-mono text-xs">
+                        <button className="hover:underline">save</button>
+                        <button type="button" className="text-muted" onClick={() => setRenaming(null)}>cancel</button>
+                      </span>
+                    </form>
+                  ) : confirming === f.id ? (
+                    <span className="inline-flex flex-wrap justify-center gap-x-3 font-mono text-xs">
+                      <button className="text-danger" title="Deletes the folder and everything inside it" onClick={() => act(async () => { await api.deleteFolder(f.id); setConfirming(null); await load(); loadUsage(); })}>delete + contents</button>
+                      <button className="text-muted" onClick={() => setConfirming(null)}>cancel</button>
+                    </span>
+                  ) : (
+                    <span className="inline-flex flex-wrap justify-center gap-x-3 font-mono text-xs text-muted">
+                      <button className="hover:text-fg" onClick={() => setRenaming({ id: f.id, name: f.name })}>rename</button>
+                      <button className="hover:text-fg" onClick={() => setMoving({ kind: "folder", item: f })}>move</button>
+                      <button className="hover:text-danger" onClick={() => setConfirming(f.id)}>delete</button>
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          {(files.length > 0 || (data.folder && !query)) && (
+          <div className="mt-3 overflow-hidden rounded-xl border border-line">
             <table className="w-full text-sm">
               <thead className="border-b border-line bg-surface text-left"><tr>
                 <th className="label px-4 py-3 font-normal">name</th>
@@ -207,38 +263,6 @@ export default function Dashboard() {
                     </td>
                   </tr>
                 )}
-                {folders.map(f => (
-                  <tr key={f.id} className="border-b border-line last:border-0 hover:bg-surface">
-                    <td className="max-w-[16rem] truncate px-4 py-3">
-                      {renaming?.id === f.id ? (
-                        <form className="flex gap-2" onSubmit={e => { e.preventDefault(); rename(); }}>
-                          <input className="input py-1" autoFocus maxLength={100} aria-label="New folder name" value={renaming.name} onChange={e => setRenaming({ id: f.id, name: e.target.value })} />
-                          <button className="font-mono text-xs hover:underline">save</button>
-                          <button type="button" className="font-mono text-xs text-muted" onClick={() => setRenaming(null)}>cancel</button>
-                        </form>
-                      ) : (
-                        <button className="truncate text-left hover:underline" onClick={() => setFolderId(f.id)}><FolderIcon />{f.name}</button>
-                      )}
-                    </td>
-                    <td className="hidden px-4 py-3 font-mono text-xs text-muted sm:table-cell">folder</td>
-                    <td className="px-4 py-3 text-right font-mono text-xs text-muted">—</td>
-                    <td className="hidden px-4 py-3 font-mono text-xs text-muted md:table-cell">{new Date(f.createdAt).toLocaleString()}</td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right">
-                      {confirming === f.id ? (
-                        <span className="inline-flex items-center gap-3 font-mono text-xs">
-                          <button className="text-danger" title="Deletes the folder and everything inside it" onClick={() => act(async () => { await api.deleteFolder(f.id); setConfirming(null); await load(); loadUsage(); })}>delete folder + contents</button>
-                          <button className="text-muted" onClick={() => setConfirming(null)}>cancel</button>
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-4 font-mono text-xs">
-                          <button className="hover:underline" onClick={() => setRenaming({ id: f.id, name: f.name })}>rename</button>
-                          <button className="hover:underline" onClick={() => setMoving({ kind: "folder", item: f })}>move</button>
-                          <button className="text-muted hover:text-danger" onClick={() => setConfirming(f.id)}>delete</button>
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
                 {files.map(f => (
                   <tr key={f.id} className="border-b border-line last:border-0 hover:bg-surface">
                     <td className="max-w-[16rem] truncate px-4 py-3">{f.name}</td>
@@ -264,8 +288,9 @@ export default function Dashboard() {
                 ))}
               </tbody>
             </table>
+          </div>
           )}
-        </div>
+        </>)}
         </>)}
       </main>
       {moving && <FolderPicker exclude={moving.kind === "folder" ? moving.item.id : undefined} onPick={moveTo} onClose={() => setMoving(null)} />}

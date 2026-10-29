@@ -1,10 +1,17 @@
 import { Link } from "../lib/router.tsx";
+import { playSound } from "../lib/sounds/sound-engine.ts";
+import { iAbilitiesTurnPageBSound } from "../lib/sounds/i-abilities-turn-page-b.ts";
 import { LiquidMetalLink } from "../components/LiquidMetal.tsx";
 import { useAuth } from "../lib/auth.tsx";
 import { Logo } from "../components/Logo.tsx";
 import { PlanCards } from "../components/PlanCards.tsx";
 import { Reveal } from "../components/Reveal.tsx";
 import { IconStack, IconLock, IconGlobe, IconBolt } from "../components/FeatureIcons.tsx";
+
+// page-turn click for the header nav; ignores clicks between links, and a blocked/failed sound is harmless
+const turnPage = (e: React.MouseEvent) => {
+  if ((e.target as HTMLElement).closest("a")) playSound(iAbilitiesTurnPageBSound.dataUri, { volume: 0.5 }).catch(() => {});
+};
 
 const features = [
   ["01", "all your stuff, one place", "Photos, documents, videos, backups. Put it all in one place and find it again in seconds."],
@@ -27,7 +34,7 @@ export default function Landing() {
       <header className="sticky top-0 z-10 border-b border-line bg-bg/80 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
           <Link href="/"><Logo /></Link>
-          <nav className="hidden gap-8 font-mono text-xs text-muted sm:flex">
+          <nav className="hidden gap-8 font-mono text-xs text-muted sm:flex" onClick={turnPage}>
             <a href="#features" className="hover:text-fg">features</a>
             <a href="#how" className="hover:text-fg">how it works</a>
             <a href="#pricing" className="hover:text-fg">pricing</a>
