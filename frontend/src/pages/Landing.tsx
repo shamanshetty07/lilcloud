@@ -51,8 +51,8 @@ export default function Landing() {
 
       <main>
         <section className="hatch border-b border-line">
-          <div className="mx-auto max-w-6xl px-4 py-10 sm:py-16">
-            <div className="hero-in relative border border-line bg-bg px-6 py-20 text-center sm:py-28">
+          <div className="mx-auto max-w-6xl px-4 py-6 sm:py-10">
+            <div className="hero-in relative border border-line bg-bg px-6 py-14 text-center sm:py-20">
               <i className="corner -left-px -top-px border-l border-t" /><i className="corner -right-px -top-px border-r border-t" />
               <i className="corner -bottom-px -left-px border-b border-l" /><i className="corner -bottom-px -right-px border-b border-r" />
               <p className="label mb-6">cloud storage</p>
@@ -70,7 +70,7 @@ export default function Landing() {
           </div>
         </section>
 
-        <section id="features" className="mx-auto max-w-6xl px-4 py-20">
+        <section id="features" className="mx-auto max-w-6xl px-4 py-14 sm:py-16">
           <Reveal><p className="label mb-3">features</p></Reveal>
           <Reveal delay={80}><h2 className="max-w-xl text-3xl font-bold tracking-[-0.04em] sm:text-4xl">Small on purpose.</h2></Reveal>
           <div className="mt-10 grid gap-px overflow-hidden rounded-xl border border-line bg-line sm:grid-cols-2">
@@ -91,7 +91,7 @@ export default function Landing() {
         </section>
 
         <section id="how" className="border-t border-line">
-          <div className="mx-auto max-w-6xl px-4 py-20">
+          <div className="mx-auto max-w-6xl px-4 py-14 sm:py-16">
             <Reveal><p className="label mb-3">how it works</p></Reveal>
             <Reveal delay={80}><h2 className="text-3xl font-bold tracking-[-0.04em] sm:text-4xl">Four things, done well.</h2></Reveal>
             <ol className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -105,7 +105,7 @@ export default function Landing() {
                 </Reveal>
               ))}
             </ol>
-            <Reveal className="cta-glow relative mt-14 overflow-hidden rounded-xl border border-line px-6 py-20 text-center sm:py-28">
+            <Reveal className="cta-glow relative mt-10 overflow-hidden rounded-xl border border-line px-6 py-16 text-center sm:py-24">
               <CtaBars />
               <div className="cta-scrim relative -mx-6 flex flex-col items-center gap-5 px-6 py-6">
                 <h3 className="text-4xl font-bold tracking-[-0.04em] sm:text-6xl">Ready to try it?</h3>
@@ -116,10 +116,10 @@ export default function Landing() {
           </div>
         </section>
         <section id="pricing" className="border-t border-line">
-          <div className="mx-auto max-w-6xl px-4 py-20">
+          <div className="mx-auto max-w-6xl px-4 py-14 sm:py-16">
             <Reveal><p className="label mb-3">pricing</p></Reveal>
-            <Reveal delay={80}><h2 className="max-w-xl text-3xl font-bold tracking-[-0.04em] sm:text-4xl">Start free. Grow when you need to.</h2></Reveal>
-            <Reveal delay={140}><p className="mt-3 max-w-xl text-muted">1 GB on the house. Larger plans are launching soon, so join the waitlist to hear first.</p></Reveal>
+            <Reveal delay={80}><h2 className="max-w-3xl text-balance text-4xl font-bold tracking-[-0.04em] sm:text-5xl">Start free. Grow when you need to.</h2></Reveal>
+            <Reveal delay={140}><p className="mt-4 max-w-xl text-lg text-muted">1 GB on the house. Larger plans are launching soon, so join the waitlist to hear first.</p></Reveal>
             <div className="mt-10"><PlanCards /></div>
           </div>
         </section>
