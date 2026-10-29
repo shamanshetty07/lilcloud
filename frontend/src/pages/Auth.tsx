@@ -3,7 +3,6 @@ import { useAuth } from "../lib/auth.tsx";
 import { navigate, Link } from "../lib/router.tsx";
 import { Logo } from "../components/Logo.tsx";
 import { SocialButtons } from "../components/SocialButtons.tsx";
-import { ChromeBackdrop } from "../components/ChromeBackdrop.tsx";
 
 const OAUTH_ERRORS: Record<string, string> = {
   not_configured: "That sign-in option isn't available yet. Please use email for now.",
@@ -39,10 +38,9 @@ export default function Auth({ mode }: { mode: "signin" | "signup" }) {
   };
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-black px-4">
-      <ChromeBackdrop />
-      <Link href="/" className="relative mb-8"><Logo size={40} /></Link>
-      <form onSubmit={submit} className="glass relative w-full max-w-sm space-y-4 rounded-2xl p-7">
+    <div className="hatch flex min-h-screen flex-col items-center justify-center px-4">
+      <Link href="/" className="mb-8"><Logo size={40} /></Link>
+      <form onSubmit={submit} className="w-full max-w-sm space-y-4 rounded-xl border border-line bg-bg p-7">
         <div>
           <h1 className="text-2xl font-bold tracking-[-0.04em]">{isUp ? "Create your account" : "Welcome back"}</h1>
           <p className="mt-1 text-sm text-muted">{isUp ? "Start storing everything in the cloud." : "Sign in to see everything you've stored."}</p>
