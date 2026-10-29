@@ -9,7 +9,6 @@ export const create=async (req:Request,res:Response)=>{
     catch(err){ return sendError(res,err,"Could not create folder"); }
 }
 
-// "root" is the top level of the user's storage
 export const contents=async (req:Request,res:Response)=>{
     try{
         const id=String(req.params.id);

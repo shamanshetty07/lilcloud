@@ -27,7 +27,6 @@ export default function GroupPage({ id }: { id: string }) {
       const [g, f, m] = await Promise.all([api.group(id), api.groupFiles(id), api.members(id)]);
       setGroup(g.group); setFiles(f.files); setMembers(m.members); setError("");
     } catch (e) {
-      // not a member (any more) or the group is gone: both look the same on purpose
       if (e instanceof ApiError && e.status === 404) setMissing(true);
       else { setError((e as Error).message); setFiles(f => f ?? []); }
     }

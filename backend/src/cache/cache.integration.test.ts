@@ -3,7 +3,6 @@ import pg from "pg";
 import { enabled, prisma, reset, makeUser, http, form } from "../test-utils/setup.ts";
 import { FakeRedis } from "../test-utils/fake-redis.ts";
 
-// the real app and a throwaway postgres, with an in-memory fake standing in for redis
 const { setRedis } = await import("./redis.ts");
 const { resetCacheState } = await import("./cache.ts");
 
@@ -11,7 +10,6 @@ type U=Awaited<ReturnType<typeof makeUser>>;
 
 describe.skipIf(!enabled)("redis cache",()=>{
     let redis:FakeRedis, a:U, b:U, c:U, A:ReturnType<typeof http>, B:ReturnType<typeof http>, C:ReturnType<typeof http>;
-    // every SQL statement that reaches postgres, minus the per-request auth lookup that is deliberately never cached
     let sql:ReturnType<typeof spyOn>;
     const dbQueries=()=>sql.mock.calls.map((c:any)=>String(c[0]?.text ?? c[0])).filter((q:string)=>!q.includes('"users"."is_active"'));
     const count=(table:string)=>dbQueries().filter((q:string)=>q.includes(`"public"."${table}"`)).length;
@@ -29,7 +27,6 @@ describe.skipIf(!enabled)("redis cache",()=>{
     const upload=async(U=A,name="f.txt",fields:Record<string,string>={})=>(await U("POST","/files/upload",form(name,name,fields))).body.file.id as string;
     const folder=async(U=A,name="docs",parentId:string|null=null)=>(await U("POST","/folders",{name,parentId})).body.folder.id as string;
     const ids=(res:{body:any})=>res.body.files.map((f:any)=>f.id).sort();
-    // pretends something changed the database behind the cache's back, to prove a response really came from the cache
     const touchDb=()=>prisma.file.updateMany({data:{file_name:"changed-behind-the-cache"}});
 
     describe("folder contents and file lists",()=>{
@@ -109,8 +106,8 @@ describe.skipIf(!enabled)("redis cache",()=>{
             const ghost="123e4567-e89b-42d3-a456-426614174000";
             expect((await A("PATCH",`/files/${id}/move`,{folderId:ghost})).status).toBe(404);
             expect((await B("DELETE",`/files/${id}`)).status).toBe(404);
-            expect((await A("GET","/files")).body.files[0].name).toBe("f.txt"); // still the cached copy
-            await A("DELETE",`/files/${id}`);                                 // a real mutation refreshes it
+            expect((await A("GET","/files")).body.files[0].name).toBe("f.txt");
+            await A("DELETE",`/files/${id}`);
             expect(ids(await A("GET","/files"))).toEqual([]);
         });
 
@@ -146,7 +143,7 @@ describe.skipIf(!enabled)("redis cache",()=>{
             expect(dbQueries()).toEqual([]);
             sql.mockClear();
             await upload(A,"two.txt");
-            expect(dbQueries().some((q:string)=>/sum\(/i.test(q))).toBe(true); // quota check reads the live total
+            expect(dbQueries().some((q:string)=>/sum\(/i.test(q))).toBe(true);
             expect((await A("GET","/files/usage")).body.usedBytes).toBe("one.txt".length+"two.txt".length);
         });
     });
@@ -196,7 +193,7 @@ describe.skipIf(!enabled)("redis cache",()=>{
             expect(ids(await B("GET",`/groups/${g}/files`))).toEqual([f]);
             sql.mockClear();
             await B("GET",`/groups/${g}/files`);
-            expect(count("group_files")).toBe(0); // only the live membership check hits the database
+            expect(count("group_files")).toBe(0);
             expect(count("group_members")).toBeGreaterThan(0);
             expect((await B("GET",`/groups/${g}`)).body.group.fileCount).toBe(1);
             await A("DELETE",`/groups/${g}/files/${f}`);
@@ -238,7 +235,7 @@ describe.skipIf(!enabled)("redis cache",()=>{
             const f1=await upload(A,"one.txt"); await A("POST",`/groups/${g1}/files`,{fileId:f1});
             expect(ids(await A("GET",`/groups/${g1}/files`))).toEqual([f1]);
             expect(ids(await B("GET",`/groups/${g2}/files`))).toEqual([]);
-            expect((await B("GET",`/groups/${g1}/files`)).status).toBe(404);   // not a member of g1
+            expect((await B("GET",`/groups/${g1}/files`)).status).toBe(404);
             expect((await C("GET",`/groups/${g2}`)).status).toBe(404);
             expect((await A("GET",`/groups/${g2}/files`)).status).toBe(404);
         });
@@ -278,7 +275,7 @@ describe.skipIf(!enabled)("redis cache",()=>{
             const fa=await folder(A,"mine"); await upload(A,"a.txt",{folderId:fa});
             const g=(await A("POST","/groups",{name:"t"})).body.group.id;
             const paths=["/files","/files/usage","/files/recent","/folders/root",`/folders/${fa}`,`/groups/${g}`,`/groups/${g}/files`,`/groups/${g}/members`];
-            for(const p of paths) expect((await A("GET",p)).status).toBe(200); // everything warm
+            for(const p of paths) expect((await A("GET",p)).status).toBe(200);
             const jwt=(await import("jsonwebtoken")).default;
             const expired=jwt.sign({id:a.id,email:a.email},process.env.JWT_SECRET!,{expiresIn:-10});
             const forged=jwt.sign({id:a.id,email:a.email},"not-the-secret");
@@ -287,7 +284,6 @@ describe.skipIf(!enabled)("redis cache",()=>{
                 expect((await http(expired)("GET",p)).status).toBe(401);
                 expect((await http(forged)("GET",p)).status).toBe(401);
             }
-            // bob asking with alice's id in every place a client could put one still gets bob's data / a 404
             const spoof=`?userId=${a.id}&user_id=${a.id}&ownerId=${a.id}`;
             expect((await B("GET",`/files${spoof}`)).body.files).toEqual([]);
             expect((await B("GET",`/folders/root${spoof}`)).body.files).toEqual([]);
@@ -308,7 +304,7 @@ describe.skipIf(!enabled)("redis cache",()=>{
         test("each folder, root, all and each page has its own entry",async()=>{
             const f1=await folder(A,"one"), f2=await folder(A,"two");
             const i1=await upload(A,"1.txt",{folderId:f1}), i2=await upload(A,"2.txt",{folderId:f2}), i3=await upload(A,"3.txt");
-            for(let round=0;round<2;round++){ // second round is served from the cache and must be identical
+            for(let round=0;round<2;round++){
                 expect(ids(await A("GET",`/files?folderId=${f1}`))).toEqual([i1]);
                 expect(ids(await A("GET",`/files?folderId=${f2}`))).toEqual([i2]);
                 expect(ids(await A("GET","/files?folderId=root"))).toEqual([i3]);
@@ -332,9 +328,9 @@ describe.skipIf(!enabled)("redis cache",()=>{
 
         test("a change made while redis was down is never hidden by an older entry afterwards",async()=>{
             const id=await upload(A);
-            await A("GET","/files");            // warm
+            await A("GET","/files");
             redis.down=true;
-            await A("DELETE",`/files/${id}`);   // invalidation is lost
+            await A("DELETE",`/files/${id}`);
             redis.down=false;
             setSystemTime(new Date(Date.now()+6_000));
             expect(ids(await A("GET","/files"))).toEqual([]);

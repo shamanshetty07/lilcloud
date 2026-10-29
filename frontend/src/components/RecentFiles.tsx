@@ -20,7 +20,7 @@ export function RecentFiles() {
     try { await api.open(f); load(); }
     catch (e) {
       setError((e as Error).message);
-      load(); // the file may be gone or no longer shared with you, so refresh the list
+      load();
     }
   };
 

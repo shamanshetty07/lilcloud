@@ -17,7 +17,6 @@ const memberId=(req:Request)=>{
     return n;
 };
 
-// runs before multer so a non-member's upload bytes are never accepted; the upload controller reads req.groupId
 export const memberOnly=async (req:Request,res:Response,next:NextFunction)=>{
     try{
         await requireMember(uid(req),gid(req));
@@ -84,7 +83,6 @@ export const download=async (req:Request,res:Response)=>{
     }
     catch(err){ return sendFileError(res,err); }
 }
-// the viewer is always the authenticated user, whoever shared the file
 export const view=async (req:Request,res:Response)=>{
     try{
         const link=await findGroupFile(uid(req),gid(req),String(req.params.fileId));

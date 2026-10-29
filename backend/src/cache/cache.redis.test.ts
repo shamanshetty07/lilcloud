@@ -3,10 +3,6 @@ import { RedisClient } from "bun";
 import pg from "pg";
 import { enabled, prisma, reset, makeUser, http, form } from "../test-utils/setup.ts";
 
-// runs against a REAL redis, but only a disposable local one: TEST_REDIS_URL must be loopback and is flushed between tests.
-//   docker run -d --name lilcloud-redis-test -p 127.0.0.1:6380:6379 redis:7-alpine
-//   TEST_REDIS_URL=redis://127.0.0.1:6380 TEST_REDIS_CONTAINER=lilcloud-redis-test bun test src/cache/cache.redis.test.ts
-// TEST_REDIS_CONTAINER (optional) lets the failure test stop and start that container to prove reconnection
 const url=process.env.TEST_REDIS_URL;
 const container=process.env.TEST_REDIS_CONTAINER;
 if(url && !["127.0.0.1","localhost","[::1]"].includes(new URL(url).hostname)) throw new Error("TEST_REDIS_URL must be a local redis");
@@ -35,7 +31,7 @@ describe.skipIf(!url)("real redis: cache layer",()=>{
         const a=await cached({scope,key:"list:x",ttl:TTL.folder,load:c.load});
         const b=await cached({scope,key:"list:x",ttl:TTL.folder,load:c.load});
         expect(c.calls()).toBe(1);
-        expect(b).toEqual(a); // unicode, nesting, null and large numbers survive the round trip
+        expect(b).toEqual(a);
         const dataKey=(await keys()).find(k=>k.includes(":data:"))!;
         expect(JSON.parse((await inspect.get(dataKey))!)).toEqual(a);
         const ttl=await inspect.ttl(dataKey);
@@ -75,7 +71,7 @@ describe.skipIf(!url)("real redis: cache layer",()=>{
         await cached({scope:"user:2:files",key:"k",ttl:60,load:c2.load});
         const before=(await keys()).filter(k=>k.includes(":data:")).length;
         await invalidate("user:1:files");
-        expect((await keys()).filter(k=>k.includes(":data:")).length).toBe(before); // old entries are left to expire
+        expect((await keys()).filter(k=>k.includes(":data:")).length).toBe(before);
         await cached({scope:"user:2:files",key:"k",ttl:60,load:c2.load});
         await cached({scope:"user:1:files",key:"k",ttl:60,load:c1.load});
         expect(c2.calls()).toBe(1); expect(c1.calls()).toBe(2);
@@ -97,18 +93,16 @@ describe.skipIf(!url)("real redis: cache layer",()=>{
         await cached({scope:"user:1:files",key:"k",ttl:60,load:c.load});
         await Bun.$`docker stop ${container}`.quiet();
         try{
-            // reads fall back to the source, nothing throws
             const t=performance.now();
             expect((await cached({scope:"user:1:files",key:"k",ttl:60,load:c.load})).n).toBe(2);
             expect(performance.now()-t).toBeLessThan(1500);
-            await invalidate("user:1:files"); // lost invalidation, must not throw
+            await invalidate("user:1:files");
         }
         finally{ await Bun.$`docker start ${container}`.quiet(); }
-        // after the breaker window the client must reconnect on its own
         let reconnected=false;
         for(let i=0;i<40 && !reconnected;i++){
             await sleep(1000);
-            resetCacheState(); // clears the breaker and the taint; we only want to know whether the connection came back
+            resetCacheState();
             const before=c.calls();
             await cached({scope:"user:9:files",key:"probe",ttl:60,load:c.load});
             await cached({scope:"user:9:files",key:"probe",ttl:60,load:c.load});
@@ -180,13 +174,13 @@ describe.skipIf(!url || !enabled)("real redis: http flows",()=>{
     test("mutations still succeed while redis is down, and nothing stale is served afterwards",async()=>{
         const down=new RedisClient("redis://127.0.0.1:1",{connectionTimeout:300,autoReconnect:false,enableOfflineQueue:false});
         const id=(await A("POST","/files/upload",form("a.txt","a"))).body.file.id;
-        await A("GET","/files"); // warm in the real redis
-        setRedis(down as any);   // an unreachable server (nothing is stopped, nothing shared is touched)
+        await A("GET","/files");
+        setRedis(down as any);
         expect((await A("DELETE",`/files/${id}`)).status).toBe(204);
         expect(ids(await A("GET","/files"))).toEqual([]);
         setRedis(client as any);
-        setSystemTime(new Date(Date.now()+6_000)); // circuit breaker window over, redis reachable again
-        try{ expect(ids(await A("GET","/files"))).toEqual([]); } // the real redis still holds the old entry, it must not be served
+        setSystemTime(new Date(Date.now()+6_000));
+        try{ expect(ids(await A("GET","/files"))).toEqual([]); }
         finally{ setSystemTime(); }
     });
 });

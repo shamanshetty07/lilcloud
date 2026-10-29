@@ -9,7 +9,6 @@ import { logActivity } from "../activity/activity.service.ts";
 
 const folderIdField=z.uuid().nullish();
 
-// serves both private uploads (optional folderId field) and group uploads (route sets req.groupId after checking membership)
 export const upload=async (req:Request,res:Response)=>{
     if(!req.file){
         return res.status(400).json({message:"file is required"});
@@ -59,7 +58,6 @@ export const usage=async (req:Request,res:Response)=>{
 
 export const list=async (req:Request,res:Response)=>{
     try{
-        // no folderId = the original "everything I can read" list, "root" = top level, otherwise a folder id
         const raw=req.query.folderId;
         if(raw!==undefined && typeof raw!=="string") return res.status(400).json({message:"Invalid folderId"});
         if(raw!==undefined && raw!=="root" && !z.uuid().safeParse(raw).success) return res.status(404).json({message:"Folder not found"});
@@ -84,7 +82,6 @@ export const download=async (req:Request,res:Response)=>{
 }
 
 type FileRow={file_id:string,file_name:string,file_type:string};
-// callers have already authorised the read
 export const sendFile=async (req:Request,res:Response,file:FileRow)=>{
     const {stream,size}=await storage.open(file.file_id);
     res.setHeader("Content-Type",file.file_type.includes("/")?file.file_type:"application/octet-stream");
@@ -146,7 +143,6 @@ export const move=async (req:Request,res:Response)=>{
     }
 }
 
-// called only when the user explicitly opens a file, never by lists or downloads
 export const view=async (req:Request,res:Response)=>{
     const userId=(req as any).userId;
     try{

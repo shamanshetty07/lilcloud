@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type ElementType, type ReactNode } from "react";
 
-// fades + lifts its content in once, the first time it scrolls into view
 export function Reveal({ children, delay = 0, as: Tag = "div", className = "" }: {
   children: ReactNode; delay?: number; as?: ElementType; className?: string;
 }) {

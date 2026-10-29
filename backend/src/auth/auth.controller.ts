@@ -12,7 +12,6 @@ export const signup=async (req:Request,res:Response)=>{
     })
     return res.status(201).json(result);}
     catch(err){
-        // only real conflicts say so; anything else (e.g. database down) is a 500, not a fake "already exists"
         return sendError(res,err,"We couldn't create your account right now. Please try again shortly.");
     }
 }
@@ -28,14 +27,12 @@ export const signin=async (req:Request,res:Response)=>{
         return res.status(200).json(result);
     }
     catch(err){
-        // wrong credentials are a 401; anything else (e.g. database down) must not be reported as a bad password
         return sendError(res,err,"We couldn't sign you in right now. Please try again shortly.");
     }
 }
 
 export const me=async (req:Request,res:Response)=>{
     try{
-        // requireAuth already loaded the (active) user; only fall back to a query if it is ever mounted without it
         const authUser=(req as any).authUser;
         const result=authUser?{user:authUser}:await meService((req as any).userId);
         return res.status(200).json(result);

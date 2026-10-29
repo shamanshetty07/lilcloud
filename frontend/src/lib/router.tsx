@@ -1,6 +1,5 @@
 import { useEffect, useState, type AnchorHTMLAttributes } from "react";
 
-// tiny History-API router: enough for four routes, no dependency
 export const navigate = (to: string) => {
   history.pushState({}, "", to);
   window.dispatchEvent(new PopStateEvent("popstate"));

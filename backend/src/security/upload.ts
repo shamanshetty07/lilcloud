@@ -8,19 +8,16 @@ import { storage } from "../files/storage.ts";
 export const MAX_FILE_SIZE=25*1024*1024;
 const MAX_NAME_LENGTH=200;
 
-// executable / script types that must never be stored
 const BLOCKED_EXTENSIONS=new Set([
     "exe","msi","bat","cmd","com","scr","pif","dll","sys","vbs","vbe","wsf","ps1","psm1",
     "sh","bash","zsh","jar","apk","app","dmg","iso","reg","lnk","cpl","hta",
     "php","phtml","phar","jsp","asp","aspx","cgi","pl","py","rb"
 ]);
 
-// strips directories, control chars and shell/path metacharacters from a client supplied name
 export const sanitizeFileName=(raw:string)=>{
-    // browsers send utf8 names as latin1 bytes, normalise both slash styles before basename
     const name=basename(cleanString(raw).replace(/\\/g,"/"))
         .normalize("NFC")
-        .replace(/[<>:"|?*‪-‮⁦-⁩]/g,"_") // includes bidi overrides used to spoof extensions
+        .replace(/[<>:"|?*‪-‮⁦-⁩]/g,"_")
         .replace(/^\.+/,"")
         .trim();
 
@@ -29,12 +26,10 @@ export const sanitizeFileName=(raw:string)=>{
     return name.slice(0,MAX_NAME_LENGTH-ext.length)+ext;
 }
 
-// a double extension like invoice.pdf.exe is rejected because any dotted segment is checked
 export const isBlockedName=(name:string)=>
     name.toLowerCase().split(".").slice(1).some(part=>BLOCKED_EXTENSIONS.has(part));
 
 export const multipart=multer({
-    // stream straight to a temp file on disk instead of holding the upload in memory
     storage:multer.diskStorage({
         destination:(_req,_file,cb)=>cb(null,storage.tmpDir),
         filename:(_req,_file,cb)=>cb(null,`${randomUUID()}.part`)

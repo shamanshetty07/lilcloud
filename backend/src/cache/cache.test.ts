@@ -1,7 +1,6 @@
 import { describe, test, expect, beforeEach, afterEach, setSystemTime } from "bun:test";
 import { FakeRedis } from "../test-utils/fake-redis.ts";
 
-// the cache has no database dependency, but env.ts insists on these being set
 process.env.PORT??="0"; process.env.DATABASE_URL??="postgresql://unused"; process.env.JWT_SECRET??="x"; process.env.MONGODB_URI??="mongodb://unused";
 const { cached, invalidate, resetCacheState, TTL } = await import("./cache.ts");
 const { setRedis } = await import("./redis.ts");
@@ -59,7 +58,7 @@ describe("cache-aside",()=>{
         await read(c);
         for(const k of redis.dataKeys()) redis.store.get(k)!.value="{not json";
         expect(await read(c)).toEqual({n:2});
-        expect(await read(c)).toEqual({n:2}); // the repaired entry is served again
+        expect(await read(c)).toEqual({n:2});
         expect(c.calls()).toBe(2);
     });
 
@@ -77,7 +76,7 @@ describe("cache-aside",()=>{
         let data="old";
         const slow=cached({scope:"s",key:"k",ttl:60,load:async()=>{ const seen=data; await gate; return seen; }});
         await new Promise(r=>setTimeout(r,5));
-        data="new"; await invalidate("s"); // the mutation commits and invalidates while the slow read is in flight
+        data="new"; await invalidate("s");
         release();
         expect(await slow).toBe("old");
         expect(await cached({scope:"s",key:"k",ttl:60,load:async()=>data})).toBe("new");
@@ -105,15 +104,15 @@ describe("redis unavailable",()=>{
         const c=counter();
         await read(c);
         redis.down=true;
-        await invalidate("s1"); // cannot reach redis
+        await invalidate("s1");
         redis.down=false;
-        setSystemTime(new Date(Date.now()+6_000)); // breaker window over, redis is back
+        setSystemTime(new Date(Date.now()+6_000));
         const before=c.calls();
         await read(c); await read(c);
-        expect(c.calls()).toBe(before+2); // stale entry exists but is not served
+        expect(c.calls()).toBe(before+2);
         setSystemTime(new Date(Date.now()+TTL.group*1000+1000));
         await read(c); await read(c);
-        expect(c.calls()).toBe(before+3); // caching resumes
+        expect(c.calls()).toBe(before+3);
     });
 
     test("does not throw when invalidating without redis configured",async()=>{

@@ -12,5 +12,4 @@ export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
 
-// Reuse a single instance across `bun --hot` reloads.
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;

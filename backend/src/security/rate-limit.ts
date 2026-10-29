@@ -2,7 +2,6 @@ import type { Request, Response, NextFunction } from "express";
 
 type options={windowMs:number,max:number,message?:string}
 
-// small in-memory fixed window limiter keyed by client ip (use redis if running multiple instances)
 export const rateLimit=({windowMs,max,message="Too many requests, try again later"}:options)=>{
     const hits=new Map<string,{count:number,resetAt:number}>();
     setInterval(()=>{

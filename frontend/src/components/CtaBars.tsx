@@ -1,14 +1,11 @@
 import { useEffect, useRef } from "react";
 
 const BARS = 32;
-// valley profile: short in the middle so the heading and button stay readable, tall at the edges
 const heights = Array.from({ length: BARS }, (_, i) => {
   const x = (i + 0.5) / BARS * 2 - 1;
   return 0.18 + 0.82 * Math.abs(x) ** 1.7;
 });
 
-// decorative equalizer backdrop for a CTA panel; bars breathe in a slow wave and lift toward the pointer.
-// place it as the first child of a `relative overflow-hidden` container
 export function CtaBars() {
   const root = useRef<HTMLDivElement>(null);
 
@@ -18,7 +15,6 @@ export function CtaBars() {
     if (!el || !host || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const bars = Array.from(el.children) as HTMLElement[];
     let frame = 0;
-    // written straight to style so pointer moves never re-render React
     const apply = (mx: number | null) => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => bars.forEach((b, i) => {

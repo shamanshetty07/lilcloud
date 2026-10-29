@@ -67,7 +67,6 @@ export async function playSound(
       try {
         source.stop();
       } catch {
-        // No-op if already stopped.
       }
     },
   };

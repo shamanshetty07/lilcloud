@@ -62,7 +62,6 @@ describe.skipIf(!enabled)("storage groups",()=>{
         expect((await B("DELETE",`/groups/${g.id}`)).status).toBe(403);
         expect((await B("PATCH",`/groups/${g.id}/members/${b.id}`,{role:"admin"})).status).toBe(403);
         expect((await B("DELETE",`/groups/${g.id}/members/${a.id}`)).status).toBe(403);
-        // outsiders get 404, same as a group that does not exist
         for(const [m,p,body] of [["GET",`/groups/${g.id}`],["GET",`/groups/${g.id}/members`],["POST",`/groups/${g.id}/members`,{identifier:d.username}],["PATCH",`/groups/${g.id}`,{name:"x"}],["DELETE",`/groups/${g.id}`],["GET",`/groups/${g.id}/files`]] as [string,string,any?][]){
             expect((await C(m,p,body)).status).toBe(404);
         }
@@ -75,7 +74,7 @@ describe.skipIf(!enabled)("storage groups",()=>{
         const g=await group("Roles",[b]);
         expect((await A("PATCH",`/groups/${g.id}`,{name:"Renamed"})).body.group.name).toBe("Renamed");
         expect((await A("PATCH",`/groups/${g.id}/members/${b.id}`,{role:"admin"})).body.member.role).toBe("admin");
-        expect((await B("DELETE",`/groups/${g.id}`)).status).toBe(204); // b is an admin, not the creator
+        expect((await B("DELETE",`/groups/${g.id}`)).status).toBe(204);
         expect((await A("GET",`/groups/${g.id}`)).status).toBe(404);
     });
 
@@ -102,7 +101,6 @@ describe.skipIf(!enabled)("storage groups",()=>{
         expect((await D("GET",`/groups/${g.id}/files/${fileId}/download`)).status).toBe(404);
         expect((await D("GET",`/files/${fileId}/download`)).status).toBe(404);
         expect((await D("POST",`/groups/${g.id}/files`,{fileId})).status).toBe(404);
-        // a member of another group cannot reach it through their own group either
         const other=await group("Other",[d]);
         expect((await D("GET",`/groups/${other.id}/files/${fileId}/download`)).status).toBe(404);
     });
@@ -123,29 +121,24 @@ describe.skipIf(!enabled)("storage groups",()=>{
         expect((await A("POST",`/groups/${g.id}/files/upload`,form("a.txt","a",{folderId:f.id}))).status).toBe(400);
         expect((await A("GET",`/groups/${g.id}/files/not-a-uuid/download`)).status).toBe(404);
         expect((await A("POST","/groups/not-a-uuid/files/upload",form("a.txt","a"))).status).toBe(404);
-        expect((await groupUpload(A,g.id,"run.sh")).status).toBe(415); // existing upload rules still apply
+        expect((await groupUpload(A,g.id,"run.sh")).status).toBe(415);
     });
 
     test("removing a member revokes group access immediately but keeps their files in the group and their other access",async()=>{
         const g=await group("Revoke",[b,c]);
         const bobsFile=(await groupUpload(B,g.id,"bobs.txt","bob wrote this")).body.file.id;
         const alicesFile=(await groupUpload(A,g.id,"alices.txt","alice wrote this")).body.file.id;
-        // alice also privately grants bob READ on her file; that is independent of the group
         await prisma.filePermission.create({data:{file_id:alicesFile,user_id:b.id,permission:"READ"}});
         expect((await B("GET",`/groups/${g.id}/files/${alicesFile}/download`)).status).toBe(200);
-        // bob leaves
         expect((await B("DELETE",`/groups/${g.id}/members/${b.id}`)).status).toBe(204);
         expect((await B("GET",`/groups/${g.id}/files`)).status).toBe(404);
         expect((await B("GET",`/groups/${g.id}/files/${alicesFile}/download`)).status).toBe(404);
         expect((await groupUpload(B,g.id)).status).toBe(404);
-        // ...but the permission he was given directly still works, and his own file is his
         expect((await B("GET",`/files/${alicesFile}/download`)).status).toBe(200);
         expect((await B("GET",`/files/${bobsFile}/download`)).status).toBe(200);
-        // his file stays available to the group
         const dl=await C("GET",`/groups/${g.id}/files/${bobsFile}/download`);
         expect(dl.status).toBe(200); expect(dl.text).toBe("bob wrote this");
         expect((await C("GET",`/groups/${g.id}/files`)).body.files.map((f:any)=>f.id)).toContain(bobsFile);
-        // an admin removing someone behaves the same
         expect((await A("DELETE",`/groups/${g.id}/members/${c.id}`)).status).toBe(204);
         expect((await C("GET",`/groups/${g.id}/files/${bobsFile}/download`)).status).toBe(404);
     });
@@ -155,7 +148,7 @@ describe.skipIf(!enabled)("storage groups",()=>{
         expect((await A("DELETE",`/groups/${g.id}/members/${a.id}`)).status).toBe(409);
         expect((await A("PATCH",`/groups/${g.id}/members/${a.id}`,{role:"member"})).status).toBe(409);
         expect((await A("PATCH",`/groups/${g.id}/members/${b.id}`,{role:"admin"})).status).toBe(200);
-        expect((await A("DELETE",`/groups/${g.id}/members/${a.id}`)).status).toBe(204); // now allowed
+        expect((await A("DELETE",`/groups/${g.id}/members/${a.id}`)).status).toBe(204);
         expect((await A("GET",`/groups/${g.id}`)).status).toBe(404);
         expect((await B("DELETE",`/groups/${g.id}/members/${b.id}`)).status).toBe(409);
         expect((await B("DELETE",`/groups/${g.id}/members/${d.id}`)).status).toBe(404);
@@ -180,11 +173,9 @@ describe.skipIf(!enabled)("storage groups",()=>{
         expect((await A("POST",`/groups/${g1.id}/files`,{fileId:mine.id})).status).toBe(409);
         expect(await prisma.file.count()).toBe(filesBefore);
         expect(await prisma.groupFile.count({where:{file_id:mine.id}})).toBe(2);
-        // only files you own can be shared
         const bobs=(await B("POST","/files/upload",form("b.txt","b"))).body.file;
         expect((await A("POST",`/groups/${g1.id}/files`,{fileId:bobs.id})).status).toBe(404);
         expect((await A("POST",`/groups/${g1.id}/files`,{fileId:"nope"})).status).toBe(400);
-        // removing from one group leaves the other, and the file itself
         expect((await A("DELETE",`/groups/${g1.id}/files/${mine.id}`)).status).toBe(204);
         expect((await B("GET",`/groups/${g2.id}/files/${mine.id}/download`)).status).toBe(200);
         expect((await B("GET",`/groups/${g1.id}/files/${mine.id}/download`)).status).toBe(404);
@@ -195,10 +186,10 @@ describe.skipIf(!enabled)("storage groups",()=>{
         const g=await group("Unlink",[b,c]);
         const fileId=(await groupUpload(B,g.id,"u.txt")).body.file.id;
         expect((await C("DELETE",`/groups/${g.id}/files/${fileId}`)).status).toBe(403);
-        expect((await A("DELETE",`/groups/${g.id}/files/${fileId}`)).status).toBe(204); // admin
+        expect((await A("DELETE",`/groups/${g.id}/files/${fileId}`)).status).toBe(204);
         expect(await prisma.file.count({where:{file_id:fileId}})).toBe(1);
         const second=(await groupUpload(B,g.id,"u2.txt")).body.file.id;
-        expect((await B("DELETE",`/groups/${g.id}/files/${second}`)).status).toBe(204); // the sharer
+        expect((await B("DELETE",`/groups/${g.id}/files/${second}`)).status).toBe(204);
         expect((await B("DELETE",`/groups/${g.id}/files/${second}`)).status).toBe(404);
     });
 
@@ -210,7 +201,7 @@ describe.skipIf(!enabled)("storage groups",()=>{
         expect(await prisma.groupFile.count({where:{group_id:g.id}})).toBe(0);
         await expect(storage.open(fileId)).resolves.toBeDefined();
         expect((await B("GET",`/files/${fileId}/download`)).text).toBe("still here");
-        expect((await A("GET",`/files/${fileId}/download`)).status).toBe(404); // alice never had access of her own
+        expect((await A("GET",`/files/${fileId}/download`)).status).toBe(404);
     });
 
     test("group uploads count against the uploader's quota like any other upload",async()=>{

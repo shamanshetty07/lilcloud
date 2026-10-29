@@ -6,11 +6,8 @@ import { cached, cacheOn, invalidate, scopes, TTL } from "../cache/cache.ts";
 type Tx=Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 type Role="admin"|"member";
 
-// membership changes for one group run one at a time so the "at least one admin" rule
-// cannot be beaten by two admins demoting each other at the same moment
 const lockGroup=(tx:Tx,groupId:string)=>tx.$executeRaw`SELECT pg_advisory_xact_lock(2, hashtext(${groupId}))`;
 
-// non-members get the same 404 as a group that does not exist, so group ids cannot be probed
 export const requireMember=async(userId:number,groupId:string,db:Tx|typeof prisma=prisma)=>{
     if(!isUuid(groupId)) throw notFound("Group not found");
     const member=await db.groupMember.findUnique({where:{group_id_user_id:{group_id:groupId,user_id:userId}}});
@@ -24,7 +21,6 @@ export const requireAdmin=async(userId:number,groupId:string,db:Tx|typeof prisma
 }
 
 type GroupRow={group_id:string,group_name:string,created_at:Date,updated_at:Date,_count:{members:number,files:number}};
-// the role is per viewer, so it is added after the (cacheable) group data
 const toGroupBase=(g:GroupRow)=>({
     id:g.group_id,
     name:g.group_name,
@@ -35,7 +31,6 @@ const toGroupBase=(g:GroupRow)=>({
 });
 const withRole=(b:ReturnType<typeof toGroupBase>,role:Role)=>({id:b.id,name:b.name,role,memberCount:b.memberCount,fileCount:b.fileCount,createdAt:b.createdAt,updatedAt:b.updatedAt});
 const toGroupDto=(g:GroupRow,role:Role)=>withRole(toGroupBase(g),role);
-// user ids of everyone in the group right now; their recents may list files the group was exposing
 const memberRecents=async(db:Tx|typeof prisma,groupId:string)=>!cacheOn()?[]:
     (await db.groupMember.findMany({where:{group_id:groupId},select:{user_id:true}})).map(m=>scopes.userRecent(m.user_id));
 const counts={select:{members:true,files:{where:{file:{deleted_at:null}}}}} as const;
@@ -58,7 +53,6 @@ export const listGroupsService=async(userId:number)=>{
 }
 
 export const getGroupService=async(userId:number,groupId:string)=>{
-    // membership is checked live every time, only the group data comes from the cache
     const me=await requireMember(userId,groupId);
     const base=await cached({
         scope:scopes.group(groupId),key:"meta",ttl:TTL.group,
@@ -79,7 +73,6 @@ export const renameGroupService=async(userId:number,groupId:string,name:string)=
     return toGroupDto(group,"admin");
 }
 
-// removes the group, its memberships and its file links. the files themselves stay with their owners
 export const deleteGroupService=async(userId:number,groupId:string)=>{
     const affected=await prisma.$transaction(async tx=>{
         await lockGroup(tx,groupId);
@@ -142,12 +135,10 @@ export const setMemberRoleService=async(actorId:number,groupId:string,targetId:n
         const m=await tx.groupMember.update({where:{group_id_user_id:{group_id:groupId,user_id:targetId}},data:{role}});
         return {userId:m.user_id,role:m.role,joinedAt:m.joined_at};
     });
-    // roles show up in the members list and group metadata
     await invalidate(scopes.group(groupId));
     return result;
 }
 
-// admins can remove anyone, any member can remove themselves (leave). files they shared stay in the group
 export const removeMemberService=async(actorId:number,groupId:string,targetId:number)=>{
     await prisma.$transaction(async tx=>{
         await lockGroup(tx,groupId);
@@ -158,7 +149,6 @@ export const removeMemberService=async(actorId:number,groupId:string,targetId:nu
         if(target.role==="admin" && await adminCount(tx,groupId)<=1) throw conflict(LAST_ADMIN);
         await tx.groupMember.delete({where:{group_id_user_id:{group_id:groupId,user_id:targetId}}});
     });
-    // the removed user's recents may still list this group's files
     await invalidate(scopes.group(groupId),scopes.userRecent(targetId));
 }
 
@@ -170,7 +160,6 @@ const toGroupFileDto=(l:{shared_at:Date,sharer:{user_id:number,username:string},
 const linkInclude={file:true,sharer:{select:{user_id:true,username:true}}} as const;
 
 export const listGroupFilesService=async(userId:number,groupId:string)=>{
-    // membership is checked live every time, so a revoked member gets a 404 even while the entry is still cached
     await requireMember(userId,groupId);
     return cached({
         scope:scopes.group(groupId),key:"files",ttl:TTL.group,
@@ -182,7 +171,6 @@ export const listGroupFilesService=async(userId:number,groupId:string)=>{
     });
 }
 
-// the link for a file inside a group, only for members. null file id / not linked both read as not found
 export const findGroupFile=async(userId:number,groupId:string,fileId:string)=>{
     await requireMember(userId,groupId);
     if(!isUuid(fileId)) throw notFound("File not found");
@@ -191,7 +179,6 @@ export const findGroupFile=async(userId:number,groupId:string,fileId:string)=>{
     return link;
 }
 
-// shares a file you own with the group: just a link, the content is not copied
 export const shareFileService=async(userId:number,groupId:string,fileId:string)=>{
     try{
         const dto=await prisma.$transaction(async tx=>{
@@ -209,7 +196,6 @@ export const shareFileService=async(userId:number,groupId:string,fileId:string)=
     }
 }
 
-// removes the link only. whoever shared it, or an admin, can do this; the file itself is never deleted here
 export const unshareFileService=async(userId:number,groupId:string,fileId:string)=>{
     const member=await requireMember(userId,groupId);
     if(!isUuid(fileId)) throw notFound("File not found");
@@ -218,6 +204,5 @@ export const unshareFileService=async(userId:number,groupId:string,fileId:string
     if(link.shared_by!==userId && member.role!=="admin") throw forbidden("Only the sharer or a group admin can remove this file from the group");
     const recents=await memberRecents(prisma,groupId);
     await prisma.groupFile.delete({where:{group_file_id:link.group_file_id}});
-    // every member's recents may list the file that just stopped being shared
     await invalidate(scopes.group(groupId),...recents);
 }

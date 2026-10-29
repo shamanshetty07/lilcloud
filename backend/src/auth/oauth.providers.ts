@@ -57,7 +57,6 @@ const github: Provider = {
         const headers = { Authorization: `Bearer ${token.access_token}`, Accept: "application/vnd.github+json", "User-Agent": "lilcloud" };
         const user = await json(await fetch("https://api.github.com/user", { headers }));
         const emails = await json(await fetch("https://api.github.com/user/emails", { headers })) as { email: string; primary: boolean; verified: boolean }[];
-        // only a primary, verified address may be used to match or create an account
         const primary = emails.find(e => e.primary && e.verified);
         return { email: primary?.email ?? "", emailVerified: !!primary, name: String(user.name || user.login || "") };
     },

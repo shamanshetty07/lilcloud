@@ -13,11 +13,8 @@ if (!process.env.MONGODB_URI) {
     throw new Error("MONGODB_URI is missing")
 }
 export const env = {
-    // where file contents live on disk; relative paths resolve from the backend folder
     STORAGE_DIR: resolve(process.env.STORAGE_DIR || "uploads"),
-    // comma separated list of frontend origins allowed to call the api, e.g. https://lilcloud.vercel.app
     CORS_ORIGINS: (process.env.CORS_ORIGINS ?? "").split(",").map(o=>o.trim()).filter(Boolean),
-    // optional: without it the api runs uncached. rediss:// for TLS (e.g. Upstash)
     REDIS_URL: process.env.REDIS_URL || undefined,
     REDIS_KEY_PREFIX: process.env.REDIS_KEY_PREFIX || "lilcloud",
     PORT: process.env.PORT,

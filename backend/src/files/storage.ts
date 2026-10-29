@@ -8,13 +8,11 @@ export class StorageError extends Error{
     constructor(public code:StorageErrorCode,message:string){ super(message); }
 }
 
-// keys are always server generated uuids, never client supplied names
 const KEY_PATTERN=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const isValidKey=(key:string)=>KEY_PATTERN.test(key);
 
 const MIN_FREE_BYTES=100*1024*1024;
 
-// local filesystem backend; swap this factory out later for an object store with the same shape
 export const createLocalStorage=(rootDir:string)=>{
     const root=resolve(rootDir);
     const tmpDir=join(root,".tmp");
@@ -31,12 +29,10 @@ export const createLocalStorage=(rootDir:string)=>{
     return {
         root,
         tmpDir,
-        // creates the storage and temp folders; call before accepting uploads
         async init(){
             try{ await mkdir(tmpDir,{recursive:true}); }
             catch(err){ throw unavailable(err); }
         },
-        // moves a finished temp upload into place (atomic on the same filesystem)
         async commit(tempPath:string,key:string){
             const target=pathFor(key);
             try{ await rename(tempPath,target); }

@@ -34,8 +34,8 @@ describe.skipIf(!enabled)("folders",()=>{
         await mk(A,"Photos",p.id);
         expect((await A("POST","/folders",{name:"photos",parentId:p.id})).status).toBe(409);
         expect((await A("POST","/folders",{name:"Photos"})).status).toBe(201);
-        expect((await A("POST","/folders",{name:"PHOTOS"})).status).toBe(409); // root level too (partial index)
-        expect((await B("POST","/folders",{name:"Photos"})).status).toBe(201); // other owners are independent
+        expect((await A("POST","/folders",{name:"PHOTOS"})).status).toBe(409);
+        expect((await B("POST","/folders",{name:"Photos"})).status).toBe(201);
         const other=await mk(A,"Other",p.id);
         expect((await A("PATCH",`/folders/${other.id}`,{name:"PHOTOS"})).status).toBe(409);
     });
@@ -74,9 +74,7 @@ describe.skipIf(!enabled)("folders",()=>{
         const top=await mk(A,"CycTop"), mid=await mk(A,"CycMid",top.id), leaf=await mk(A,"CycLeaf",mid.id);
         const bad=[[top.id,top.id],[top.id,mid.id],[top.id,leaf.id],[mid.id,leaf.id]];
         for(const [id,target] of bad) expect((await A("PATCH",`/folders/${id}/move`,{folderId:target})).status).toBe(400);
-        // nothing changed
         expect((await A("GET",`/folders/${leaf.id}`)).body.breadcrumb.map((c:any)=>c.name)).toEqual(["CycTop","CycMid","CycLeaf"]);
-        // a legal move: leaf up to the root, then top under it
         expect((await A("PATCH",`/folders/${leaf.id}/move`,{folderId:null})).body.folder.parentId).toBeNull();
         expect((await A("PATCH",`/folders/${top.id}/move`,{folderId:leaf.id})).status).toBe(200);
         expect((await A("GET",`/folders/${mid.id}`)).body.breadcrumb.map((c:any)=>c.name)).toEqual(["CycLeaf","CycTop","CycMid"]);
@@ -99,14 +97,12 @@ describe.skipIf(!enabled)("folders",()=>{
         expect((await B("POST","/files/upload",form("b.txt","x",{folderId:f.id}))).status).toBe(404);
         expect((await B("GET",`/files?folderId=${f.id}`)).status).toBe(404);
         expect((await B("PATCH",`/files/${file.id}/move`,{folderId:null})).status).toBe(404);
-        // moving my own folder/file into theirs is refused the same way
         const mine=await mk(B,"Mine");
         expect((await B("PATCH",`/folders/${mine.id}/move`,{folderId:f.id})).status).toBe(404);
         const bFile=(await B("POST","/files/upload",form("bf.txt","x"))).body.file;
         expect((await B("PATCH",`/files/${bFile.id}/move`,{folderId:f.id})).status).toBe(404);
         expect((await B("GET",`/files/${file.id}/download`)).status).toBe(404);
         expect((await prisma.file.count({where:{file_name:"b.txt"}}))).toBe(0);
-        // unknown / malformed ids look identical
         expect((await A("GET","/folders/not-a-uuid")).status).toBe(404);
         expect((await A("GET","/folders/123e4567-e89b-42d3-a456-426614174000")).status).toBe(404);
         expect((await A("POST","/files/upload",form("bad.txt","x",{folderId:"nope"}))).status).toBe(400);

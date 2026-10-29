@@ -1,7 +1,5 @@
 import type { CacheClient } from "../cache/redis.ts";
 
-// in-memory stand-in for redis: expiry follows Date.now() (so setSystemTime moves it) and `down` makes every command fail.
-// tests never talk to a real redis, let alone the one in REDIS_URL
 export class FakeRedis implements CacheClient {
     store=new Map<string,{value:string,expiresAt:number|null}>();
     down=false;
@@ -21,7 +19,6 @@ export class FakeRedis implements CacheClient {
         this.store.set(key,{value,expiresAt:ex>=0?Date.now()+Number(opts[ex+1])*1000:null});
         return "OK";
     }
-    // emulates the cache's single round trip read script: [version, data] or null when the scope has no version yet
     async send(command:string,args:string[]){
         this.guard();
         if(command!=="EVAL") throw new Error(`FakeRedis: unsupported ${command}`);

@@ -5,12 +5,9 @@ import { cached, invalidate, hash, scopes, TTL } from "../cache/cache.ts";
 
 export const MAX_RECENT=50;
 
-// only an explicit "open" calls this. the file must be readable by the viewer right now
-// (owner, permission or current group membership), and the row is always the viewer's own
 export const recordViewService=async(userId:number,fileId:string)=>{
     const file=await findAccessibleFile(userId,fileId,"READ");
     if(!file) throw notFound("File not found");
-    // the file can be deleted between the check and the write, which breaks the foreign key
     const view=await prisma.fileViewHistory.upsert({
         where:{user_id_file_id:{user_id:userId,file_id:file.file_id}},
         create:{user_id:userId,file_id:file.file_id},
@@ -20,14 +17,12 @@ export const recordViewService=async(userId:number,fileId:string)=>{
     return {fileId:file.file_id,viewedAt:view.viewed_at};
 }
 
-// cursor is "<viewed_at ms>.<view_id>", the same order the list is sorted by
 const parseCursor=(cursor:string)=>{
     const m=/^(\d{1,15})\.(\d{1,10})$/.exec(cursor);
     if(!m) throw badRequest("Invalid cursor");
     return {at:new Date(Number(m[1])),id:Number(m[2])};
 }
 
-// files that were deleted (rows cascade away) or are no longer readable are filtered out in the query
 export const listRecentService=async(userId:number,limit:number,cursor?:string)=>{
     const take=Math.min(Math.max(Math.trunc(limit)||20,1),MAX_RECENT);
     const c=cursor?parseCursor(cursor):null;

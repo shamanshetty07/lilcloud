@@ -1,5 +1,3 @@
-// the deployed build bakes this in; change it and rebuild/redeploy when the tunnel URL changes
-// Bun inlines process.env.BUN_PUBLIC_* only when the variable is set; otherwise `process` is undefined in the browser
 const configuredUrl = (() => { try { return process.env.BUN_PUBLIC_API_URL; } catch { return undefined; } })();
 export const API_URL = (configuredUrl || "http://localhost:3000/api/v1").replace(/\/$/, "");
 
@@ -29,17 +27,14 @@ const USER_KEY = "lilcloud.user";
 export const tokenStore = {
   get: () => { try { return localStorage.getItem(TOKEN_KEY); } catch { return null; } },
   set: (t: string) => { try { localStorage.setItem(TOKEN_KEY, t); } catch {} },
-  // the remembered user belongs to the token, so it goes with it
   clear: () => { try { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(USER_KEY); } catch {} },
 };
 
-// last known signed-in user, so the UI can render at once while /auth/me re-checks in the background
 export const userStore = {
   get: (): User | null => { try { return JSON.parse(localStorage.getItem(USER_KEY) ?? "null"); } catch { return null; } },
   set: (u: User) => { try { localStorage.setItem(USER_KEY, JSON.stringify(u)); } catch {} },
 };
 
-// the UI listens for this to drop back to the sign-in screen when a token expires
 export const onUnauthorized = { handler: () => {} };
 
 async function request<T>(path: string, init: RequestInit = {}, auth = true): Promise<T> {
@@ -114,8 +109,6 @@ export const api = {
     save(URL.createObjectURL(blob), file.name, true);
   },
 
-  // records the view, then shows the file in a new tab if it is a type that cannot run script in our origin;
-  // anything else (html, svg, ...) is downloaded instead
   async open(file: FileItem, groupId?: string) {
     await request<unknown>(groupId ? `/groups/${groupId}/files/${file.id}/view` : `/files/${file.id}/view`, { method: "POST" });
     const blob = await fetchBlob(file, groupId);
@@ -124,7 +117,6 @@ export const api = {
     else save(URL.createObjectURL(blob), file.name, true);
   },
 
-  // XHR rather than fetch so we get upload progress. into = a private folder (null/undefined = root) or a group's shared space
   upload(file: File, onProgress: (pct: number) => void, into: { folderId?: string | null; groupId?: string } = {}) {
     return new Promise<FileItem>((resolve, reject) => {
       const xhr = new XMLHttpRequest();
@@ -147,7 +139,6 @@ export const api = {
   },
 };
 
-// only types a browser renders without running script; never html or svg
 const INLINE_TYPES = new Set(["application/pdf", "text/plain", "image/png", "image/jpeg", "image/gif", "image/webp"]);
 
 async function fetchBlob(file: FileItem, groupId?: string) {

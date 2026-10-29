@@ -20,8 +20,6 @@ const toFolderDto=(f:Row)=>({
 
 const DUPLICATE="A folder with that name already exists here";
 
-// moves and creates for one owner run one at a time, so two concurrent moves
-// (A into B, B into A) can never both pass the cycle check
 const lockOwner=(tx:Tx,ownerId:number)=>tx.$executeRaw`SELECT pg_advisory_xact_lock(1, ${ownerId}::int)`;
 
 const ownedFolder=async(tx:Tx|typeof prisma,ownerId:number,folderId:string)=>{
@@ -31,8 +29,6 @@ const ownedFolder=async(tx:Tx|typeof prisma,ownerId:number,folderId:string)=>{
     return folder;
 }
 
-// the folder itself first, then each parent up to the root (names included for breadcrumbs).
-// callers must already have checked the starting folder belongs to the user
 const chainOf=(tx:Tx|typeof prisma,folderId:string)=>tx.$queryRaw<{folder_id:string,folder_name:string}[]>`
     WITH RECURSIVE chain AS (
         SELECT folder_id, folder_name, parent_folder_id, 1 AS depth FROM folders WHERE folder_id=${folderId}::uuid
@@ -62,8 +58,6 @@ export const createFolderService=async(userId:number,name:string,parentId:string
     }
 }
 
-// id null = the root of the user's storage
-// the key is scoped to the authenticated user, so a hit can only ever be that user's own folder
 export const getFolderContentsService=(userId:number,id:string|null)=>cached({
     scope:scopes.userFiles(userId),key:`folder:${id ?? "root"}`,ttl:TTL.folder,
     validate:(v):v is Awaited<ReturnType<typeof loadFolderContents>>=>Array.isArray((v as any)?.files) && Array.isArray((v as any)?.folders),
@@ -105,8 +99,6 @@ export const moveFolderService=async(userId:number,id:string,newParentId:string|
             const folder=await ownedFolder(tx,userId,id);
             if(newParentId){
                 await ownedFolder(tx,userId,newParentId);
-                // the target's ancestors include the target itself, so this catches both
-                // "into itself" and "into one of its own descendants"
                 const chain=await chainOf(tx,newParentId);
                 if(chain.some(c=>c.folder_id===id)) throw badRequest("A folder can't be moved into itself or one of its subfolders");
                 if(chain.length>=MAX_DEPTH) throw badRequest("Folders are nested too deeply");
@@ -114,7 +106,6 @@ export const moveFolderService=async(userId:number,id:string,newParentId:string|
             if(folder.parent_folder_id===newParentId) return toFolderDto(folder);
             return toFolderDto(await tx.folder.update({where:{folder_id:id},data:{parent_folder_id:newParentId}}));
         });
-        // old and new parent listings both live in the owner's scope
         await invalidate(scopes.userFiles(userId));
         return folder;
     }
@@ -174,7 +165,6 @@ export const restoreFolderService=async(userId:number,id:string)=>{
     }
 }
 
-// Permanently remove a folder subtree and its stored file contents.
 export const deleteFolderService=async(userId:number,id:string)=>{
     const fileIds=await prisma.$transaction(async tx=>{
         await lockOwner(tx,userId);
@@ -184,9 +174,7 @@ export const deleteFolderService=async(userId:number,id:string)=>{
         const folderIds=tree.map(t=>t.folder_id);
         const files=await tx.file.findMany({where:{folder_id:{in:folderIds}},select:{file_id:true}});
         const touched=await cacheScopesFor(tx,files.map(f=>f.file_id));
-        // views, group links and permissions cascade from the file row
         await tx.file.deleteMany({where:{file_id:{in:files.map(f=>f.file_id)}}});
-        // parent foreign keys are RESTRICT, so go deepest level first
         const maxDepth=Math.max(...tree.map(t=>t.depth));
         for(let d=maxDepth;d>=0;d--){
             await tx.folder.deleteMany({where:{folder_id:{in:tree.filter(t=>t.depth===d).map(t=>t.folder_id)}}});

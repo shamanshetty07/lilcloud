@@ -14,7 +14,6 @@ export const GitHubIcon = () => (
   </svg>
 );
 
-// the browser navigates to the API, which redirects to the provider and back
 const go = (provider: "google" | "github") => { window.location.href = `${API_URL}/auth/oauth/${provider}/start`; };
 
 export function SocialButtons() {

@@ -1,9 +1,6 @@
 import { mock } from "bun:test";
 import jwt from "jsonwebtoken";
 
-// integration tests need a real postgres: set TEST_DATABASE_URL to a throwaway local database that already has
-// the migrations applied (DATABASE_URL=<it> bunx prisma migrate deploy). without it the suites are skipped.
-// preload.ts (see bunfig.toml) swaps DATABASE_URL for it before anything is imported
 const url=process.env.TEST_DATABASE_URL;
 export const enabled=!!url;
 
@@ -14,7 +11,6 @@ if(url){
     ({default:app}=await import("../server/app.ts"));
     ({prisma}=await import("../lib/prisma.ts"));
     ({storage}=await import("../files/storage.ts"));
-    // last line of defence: never touch anything but the throwaway database named in TEST_DATABASE_URL
     const [{db}]=await prisma.$queryRaw`SELECT current_database() AS db`;
     if(db!==new URL(url).pathname.slice(1)) throw new Error(`refusing to run: connected to "${db}", not the test database`);
     await storage.init();
@@ -24,7 +20,6 @@ if(url){
 
 export { prisma, storage };
 
-// wipes the (verified throwaway) test database between suites
 export const reset=async()=>{
     await prisma.$executeRawUnsafe(`TRUNCATE users, files, file_permissions, folders, file_view_history, storage_groups, group_members, group_files RESTART IDENTITY CASCADE`);
 }
@@ -38,7 +33,6 @@ export const makeUser=async(name:string)=>{
 }
 
 export type Res={status:number,body:any,text:string};
-// a fresh X-Forwarded-For per call gives every request its own rate limit bucket (the app trusts loopback proxies)
 export const http=(token?:string)=>async(method:string,path:string,body?:unknown):Promise<Res>=>{
     const headers:Record<string,string>={"X-Forwarded-For":`10.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}`};
     if(token) headers.Authorization=`Bearer ${token}`;

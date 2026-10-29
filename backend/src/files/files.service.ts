@@ -9,9 +9,6 @@ import { cached, cacheOn, invalidate, hash, scopes, TTL } from "../cache/cache.t
 type Db=typeof prisma|Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 const lockOwner=(db:Db,userId:number)=>db.$executeRaw`SELECT pg_advisory_xact_lock(1, ${userId}::int)`;
 
-// every cache scope a change to these files can touch: the owner's and any permission holder's file lists, the
-// owner's recents and the groups the files are shared in. looked up before a delete (the rows cascade away) and
-// inside the move transaction, then invalidated once the change has committed
 export const cacheScopesFor=async(db:Db,fileIds:string[])=>{
     if(!cacheOn() || !fileIds.length) return [];
     const where={file_id:{in:fileIds}};
@@ -33,14 +30,12 @@ export class QuotaExceededError extends Error {
     constructor(){ super("QUOTA_EXCEEDED"); }
 }
 
-// always live: the upload quota check must never read a cached total
 const usageNow=async(userId:number)=>{
     const sum=await prisma.file.aggregate({where:{owner_id:userId},_sum:{file_size:true}});
     const plan=currentPlanFor(userId);
     return {plan,usedBytes:Number(sum._sum.file_size ?? 0),limitBytes:PLANS[plan].limitBytes};
 }
 
-// dashboard numbers (GET /files/usage) may come from the cache
 export const getUsageService=(userId:number)=>cached({
     scope:scopes.userFiles(userId),key:"usage",ttl:TTL.dashboard,
     load:()=>usageNow(userId),
@@ -53,13 +48,10 @@ type uploadData={
     mimeType:string,
     tempPath:string,
     size:number,
-    // private upload into one of the owner's folders (null/undefined = root)
     folderId?:string|null,
-    // upload into a group's shared space; the uploader must be a member
     groupId?:string
 }
 
-// derive the type from the file extension, fall back to the browser supplied mime type
 export const deriveFileType=(fileName:string,mimeType:string)=>{
     const byExtension=Bun.file(fileName).type.split(";")[0];
     if(byExtension && byExtension!=="application/octet-stream"){
@@ -80,8 +72,6 @@ export const toDto=(file:{file_id:string,file_name:string,file_size:bigint,file_
     folderId:file.folder_id
 });
 
-// the file id doubles as the storage key. content is stored first so a failed
-// write never leaves a database row pointing at nothing
 export const uploadFileService=async(data:uploadData)=>{
     const usage=await usageNow(data.ownerId);
     if(usage.usedBytes+data.size>usage.limitBytes) throw new QuotaExceededError();
@@ -89,8 +79,6 @@ export const uploadFileService=async(data:uploadData)=>{
     await storage.commit(data.tempPath,fileId);
     let created:Awaited<ReturnType<typeof prisma.file.create>>;
     try{
-        // folder / membership are checked in the same transaction that writes the rows, so a
-        // membership revoked a moment ago cannot slip an upload through
         const file=await prisma.$transaction(async tx=>{
             if(data.folderId){
                 const folder=await tx.folder.findFirst({where:{folder_id:data.folderId,owner_id:data.ownerId,deleted_at:null},select:{folder_id:true}});
@@ -118,12 +106,10 @@ export const uploadFileService=async(data:uploadData)=>{
         await storage.remove(fileId).catch(()=>{});
         throw err;
     }
-    // outside the try: the row is committed, so nothing here may remove the stored content
     await invalidate(scopes.userFiles(data.ownerId),...(data.groupId?[scopes.group(data.groupId)]:[]));
     return {file:toDto(created)};
 }
 
-// owner, or a user holding the needed permission (OWNER implies all)
 const accessFilter=(userId:number,permission:"READ"|"DELETE")=>({
     OR:[
         {owner_id:userId},
@@ -131,8 +117,6 @@ const accessFilter=(userId:number,permission:"READ"|"DELETE")=>({
     ]
 });
 
-// membership is looked up live, so removing someone from a group ends their access on the next request.
-// group access is read only and never widens the delete filter
 export const readFilter=(userId:number)=>({
     OR:[
         ...accessFilter(userId,"READ").OR,
@@ -140,9 +124,6 @@ export const readFilter=(userId:number)=>({
     ]
 });
 
-// folderId: undefined = everything the user can read through ownership/permissions (original behaviour),
-// null = the root of their own storage, uuid = that folder (must be theirs). group files are never listed here
-// cached per user (the key is scoped to the authenticated user, and only the owner can ever populate a folder entry)
 export const listFilesService=(userId:number,folderId?:string|null)=>cached({
     scope:scopes.userFiles(userId),key:`list:${hash(folderId===undefined?"all":folderId)}`,ttl:TTL.folder,
     validate:(v):v is {files:ReturnType<typeof toDto>[]}=>Array.isArray((v as any)?.files),
@@ -159,7 +140,6 @@ export const listFilesService=(userId:number,folderId?:string|null)=>cached({
     }
 });
 
-// only the owner can organise a file; null moves it back to the root
 export const moveFileService=async(userId:number,fileId:string,folderId:string|null)=>{
     if(!isValidKey(fileId)) throw notFound("File not found");
     const {dto,touched}=await prisma.$transaction(async tx=>{
@@ -172,12 +152,10 @@ export const moveFileService=async(userId:number,fileId:string,folderId:string|n
         const dto=toDto(await tx.file.update({where:{file_id:fileId},data:{folder_id:folderId}}));
         return {dto,touched:await cacheScopesFor(tx,[fileId])};
     });
-    // one user scope covers both the source and the destination folder listing
     await invalidate(...touched);
     return dto;
 }
 
-// returns null for both "does not exist" and "not yours" so ids cannot be probed
 export const findAccessibleFile=async(userId:number,fileId:string,permission:"READ"|"DELETE")=>{
     if(!isValidKey(fileId)) return null;
     return prisma.file.findFirst({where:{file_id:fileId,deleted_at:null,...(permission==="READ"?readFilter(userId):accessFilter(userId,permission))}});

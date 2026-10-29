@@ -4,10 +4,6 @@ import * as React from "react";
 import { motion } from "framer-motion";
 import { cn } from "../../lib/utils.ts";
 
-// ============================================
-// SVG Icon Components
-// ============================================
-
 const FolderBackIcon = ({ className }: { className?: string }) => (
     <svg viewBox="0 0 20 16" className={cn("w-full h-full fill-current", className)}>
         <path d="M7.5,0C7.4,0,2,0,2,0C0.9,0,0,0.9,0,2l0,12c0,1.1,0.9,2,2,2h16c1.1,0,2-0.9,2-2V4c0-1.1-0.9-2-2-2c0,0-7.5,0-8,0C9,2,9.9,0,7.5,0z" />
@@ -59,10 +55,6 @@ const FileIcon = ({ className }: { className?: string }) => (
     </svg>
 );
 
-// ============================================
-// Types & Interfaces
-// ============================================
-
 export type FolderVariant =
     | "devi"
     | "rudras"
@@ -84,10 +76,6 @@ export interface FolderPreviewProps {
     className?: string;
     onClick?: () => void;
 }
-
-// ============================================
-// Color Schemes for Each Variant
-// ============================================
 
 const variantColors: Record<
     FolderVariant,
@@ -162,7 +150,6 @@ const variantColors: Record<
         caption: "text-gray-900 dark:text-gray-100",
         bg: "bg-green-100 dark:bg-green-950",
     },
-    // matches the app's monochrome theme tokens (styles.css)
     lilcloud: {
         back: "text-line-strong",
         cover: "text-raised",
@@ -171,10 +158,6 @@ const variantColors: Record<
         bg: "bg-surface",
     },
 };
-
-// ============================================
-// Size Configuration
-// ============================================
 
 const sizeConfig = {
     sm: {
@@ -197,10 +180,6 @@ const sizeConfig = {
     },
 };
 
-// ============================================
-// Animation Variants
-// ============================================
-
 const createCircularPositions = (count: number, radius: number = 120) => {
     return Array.from({ length: count }, (_, i) => {
         const startAngle = Math.PI / count;
@@ -211,10 +190,6 @@ const createCircularPositions = (count: number, radius: number = 120) => {
         };
     });
 };
-
-// ============================================
-// Individual Folder Components for each Variant
-// ============================================
 
 const DeviFolder: React.FC<{
     images: string[];
@@ -227,7 +202,6 @@ const DeviFolder: React.FC<{
 
     return (
         <div className="relative">
-            {/* Previews - positioned from folder center */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
                 {images.map((img, i) => (
                     <motion.img
@@ -255,14 +229,11 @@ const DeviFolder: React.FC<{
                 ))}
             </div>
 
-            {/* Folder */}
             <div className="relative cursor-pointer aspect-[20/16]" style={{ perspective: "800px" }}>
-                {/* Back */}
                 <div className={cn("absolute inset-0 transition-colors duration-150", colors.back)}>
                     <FolderBackIcon />
                 </div>
 
-                {/* Cover */}
                 <motion.div
                     className={cn(
                         "relative transition-colors duration-150",
@@ -291,7 +262,6 @@ const DeviFolder: React.FC<{
     );
 };
 
-
 const RudrasFolder: React.FC<{
     images: string[];
     isHovered: boolean;
@@ -303,7 +273,6 @@ const RudrasFolder: React.FC<{
 
     return (
         <div className="relative">
-            {/* Previews - positioned from folder center */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
                 {images.map((img, i) => (
                     <motion.img
@@ -333,17 +302,13 @@ const RudrasFolder: React.FC<{
                 ))}
             </div>
 
-            {/* Folder */}
             <div className="relative cursor-pointer aspect-[20/16]" style={{ perspective: "800px" }}>
-                {/* Back */}
                 <div className={cn("absolute inset-0", colors.back)}>
                     <FolderBackIcon />
                 </div>
 
-                {/* Paper Sheet Deco */}
                 <div className="absolute bottom-0.5 left-0.5 right-0.5 h-3/4 bg-white dark:bg-gray-200 rounded-lg" />
 
-                {/* Cover */}
                 <motion.div
                     className={cn("relative", colors.cover)}
                     style={{ transformOrigin: "50% 100%", transformStyle: "preserve-3d" }}
@@ -372,7 +337,6 @@ const RudrasFolder: React.FC<{
     );
 };
 
-
 const ArdraFolder: React.FC<{
     images: string[];
     isHovered: boolean;
@@ -394,7 +358,6 @@ const ArdraFolder: React.FC<{
 
     return (
         <div className="relative">
-            {/* Feedback Circle */}
             <motion.div
                 className="absolute inset-0 flex items-center justify-center pointer-events-none"
                 initial={{ opacity: 0 }}
@@ -410,7 +373,6 @@ const ArdraFolder: React.FC<{
                 />
             </motion.div>
 
-            {/* Previews - positioned from folder center */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
                 {images.map((img, i) => (
                     <motion.img
@@ -435,18 +397,15 @@ const ArdraFolder: React.FC<{
                 ))}
             </div>
 
-            {/* Folder */}
             <motion.div
                 className="relative cursor-pointer aspect-[20/16]"
                 animate={isHovered ? { scale: 0.85 } : { scale: 1 }}
                 transition={{ duration: 0.5, ease: [0.1, 1, 0.3, 1] }}
             >
-                {/* Back */}
                 <div className={cn("absolute inset-0", colors.back)}>
                     <FolderBackIcon />
                 </div>
 
-                {/* Cover */}
                 <div className={cn("relative", colors.cover)}>
                     <FolderCoverIcon />
                     <div
@@ -484,12 +443,10 @@ const ShaktiFolder: React.FC<{
             transition={{ duration: 0.4, ease: [0.2, 1, 0.3, 1] }}
         >
             <div className="relative cursor-pointer">
-                {/* Back */}
                 <div className={cn("absolute inset-0", colors.back)}>
                     <FolderBackIcon />
                 </div>
 
-                {/* Previews - Fan animation */}
                 <div className={cn("absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2", sizes.thumb)}>
                     {images.map((img, i) => (
                         <motion.img
@@ -512,7 +469,6 @@ const ShaktiFolder: React.FC<{
                     ))}
                 </div>
 
-                {/* Cover */}
                 <div className={cn("relative", colors.cover)}>
                     <FolderCoverIcon />
                     <div
@@ -556,15 +512,12 @@ const KuberaFolder: React.FC<{
     return (
         <div className="relative">
             <div className="relative cursor-pointer" style={{ perspective: "800px" }}>
-                {/* Back */}
                 <div className={cn("absolute inset-0", colors.back)}>
                     <FolderBackIcon />
                 </div>
 
-                {/* Paper Sheet Deco */}
                 <div className="absolute bottom-0.5 left-0.5 right-0.5 h-3/4 bg-white dark:bg-gray-200 rounded-lg" />
 
-                {/* Floating Previews */}
                 <div className={cn("absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2", sizes.thumb)}>
                     {images.map((img, i) => (
                         <motion.img
@@ -593,7 +546,6 @@ const KuberaFolder: React.FC<{
                     ))}
                 </div>
 
-                {/* Cover */}
                 <motion.div
                     className={cn("relative", colors.cover)}
                     style={{ transformOrigin: "50% 100%", transformStyle: "preserve-3d" }}
@@ -633,7 +585,6 @@ const HariFolder: React.FC<{
 
     return (
         <div className="relative">
-            {/* Feedback Circle */}
             <motion.div
                 className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-14 h-14 rounded-full bg-sky-500"
                 initial={{ opacity: 0, scale: 1 }}
@@ -643,7 +594,6 @@ const HariFolder: React.FC<{
                 transition={{ duration: 1.1, delay: 0.2, ease: [0.1, 1, 0.3, 1] }}
             />
 
-            {/* Jumping Previews */}
             <div className={cn("absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2", sizes.thumb)}>
                 {images.map((img, i) => (
                     <motion.img
@@ -688,15 +638,12 @@ const HariFolder: React.FC<{
                     damping: 15,
                 }}
             >
-                {/* Back */}
                 <div className={cn("absolute inset-0", colors.back)}>
                     <FolderBackIcon />
                 </div>
 
-                {/* Paper Sheet Deco */}
                 <div className="absolute bottom-0.5 left-0.5 right-0.5 h-3/4 bg-white/80 rounded-lg" />
 
-                {/* Cover */}
                 <motion.div
                     className={cn("relative", colors.cover)}
                     style={{ transformOrigin: "50% 100%", transformStyle: "preserve-3d" }}
@@ -734,7 +681,6 @@ const RaviFolder: React.FC<{
     sizes: typeof sizeConfig.md;
     label?: string;
 }> = ({ images, isHovered, colors, sizes, label }) => {
-    // Reorder images for card-spread effect
     const reorder = (arr: string[]) => {
         const result: string[] = [];
         let i = Math.ceil(arr.length / 2);
@@ -750,7 +696,6 @@ const RaviFolder: React.FC<{
 
     return (
         <div className="relative">
-            {/* Feedback Circle */}
             <motion.div
                 className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-14 h-14 rounded-full bg-white"
                 initial={{ opacity: 0, scale: 1 }}
@@ -761,15 +706,12 @@ const RaviFolder: React.FC<{
             />
 
             <div className="relative cursor-pointer" style={{ perspective: "800px" }}>
-                {/* Back */}
                 <div className={cn("absolute inset-0", colors.back)}>
                     <FolderBackIcon />
                 </div>
 
-                {/* Paper Sheet */}
                 <div className="absolute bottom-0.5 left-0.5 right-0.5 h-3/4 bg-white rounded-lg" />
 
-                {/* Card Spread Previews */}
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[75px] h-[65px]">
                     {orderedImages.map((img, i) => {
                         const interval = 60;
@@ -803,7 +745,6 @@ const RaviFolder: React.FC<{
                     })}
                 </div>
 
-                {/* Cover */}
                 <motion.div
                     className={cn("relative", colors.cover)}
                     style={{ transformOrigin: "50% 100%", transformStyle: "preserve-3d" }}
@@ -845,7 +786,6 @@ const DurgaFolder: React.FC<{
 }> = ({ files, isHovered, colors, sizes, label }) => {
     return (
         <div className="relative">
-            {/* Text Preview - shows file list inside a tooltip bubble */}
             <motion.div
                 className="absolute -right-2 top-0 bg-gray-800 dark:bg-gray-900 rounded-lg px-3 py-2 shadow-lg z-20 min-w-[100px]"
                 initial={{ opacity: 0, x: -10, scale: 0.9 }}
@@ -866,17 +806,13 @@ const DurgaFolder: React.FC<{
                 ))}
             </motion.div>
 
-            {/* Folder */}
             <div className="relative cursor-pointer aspect-[20/16]" style={{ perspective: "800px" }}>
-                {/* Back */}
                 <div className={cn("absolute inset-0", colors.back)}>
                     <FolderBackIcon />
                 </div>
 
-                {/* Paper Sheet */}
                 <div className="absolute bottom-0.5 left-0.5 right-0.5 h-3/4 bg-white dark:bg-gray-200 rounded-lg" />
 
-                {/* Cover */}
                 <motion.div
                     className={cn("relative", colors.cover)}
                     style={{ transformOrigin: "50% 100%", transformStyle: "preserve-3d" }}
@@ -921,7 +857,6 @@ const NandiFolder: React.FC<{
 
     return (
         <div className="relative">
-            {/* Magnifier Preview - compact bubble above folder */}
             <motion.div
                 className="absolute left-1/2 -translate-x-1/2 bg-white dark:bg-gray-100 rounded-2xl shadow-xl z-20 p-3 grid grid-cols-3 gap-2"
                 style={{ bottom: '100%', marginBottom: '8px', minWidth: '120px' }}
@@ -945,17 +880,13 @@ const NandiFolder: React.FC<{
                 ))}
             </motion.div>
 
-            {/* Folder */}
             <div className="relative cursor-pointer aspect-[20/16]" style={{ perspective: "800px" }}>
-                {/* Back */}
                 <div className={cn("absolute inset-0", colors.back)}>
                     <FolderBackIcon />
                 </div>
 
-                {/* Paper Sheet */}
                 <div className="absolute bottom-0.5 left-0.5 right-0.5 h-3/4 bg-white dark:bg-gray-200 rounded-lg" />
 
-                {/* Cover */}
                 <motion.div
                     className={cn("relative", colors.cover)}
                     style={{ transformOrigin: "50% 100%", transformStyle: "preserve-3d" }}
@@ -993,7 +924,6 @@ const LilcloudFolder: React.FC<{
 }> = ({ files, isHovered, colors, sizes, label }) => {
     return (
         <div className="relative w-full">
-            {/* Contents list - bubble above the folder, centered so it never pushes past the viewport edge */}
             <motion.div
                 className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 w-max min-w-[7.5rem] max-w-[11rem] rounded-lg border border-line-strong bg-surface px-3 py-2 shadow-xl"
                 initial={{ opacity: 0, x: "-50%", y: 6, scale: 0.95 }}
@@ -1013,17 +943,13 @@ const LilcloudFolder: React.FC<{
                 ))}
             </motion.div>
 
-            {/* Folder */}
             <div className="relative cursor-pointer aspect-[20/16]" style={{ perspective: "800px" }}>
-                {/* Back */}
                 <div className={cn("absolute inset-0", colors.back)}>
                     <FolderBackIcon />
                 </div>
 
-                {/* Paper Sheet */}
                 <div className="absolute bottom-0.5 left-0.5 right-0.5 h-3/4 rounded-lg bg-fg/85" />
 
-                {/* Cover */}
                 <motion.div
                     className={cn("relative", colors.cover)}
                     style={{ transformOrigin: "50% 100%", transformStyle: "preserve-3d" }}
@@ -1052,10 +978,6 @@ const LilcloudFolder: React.FC<{
     );
 };
 
-// ============================================
-// Main FolderPreview Component
-// ============================================
-
 export const FolderPreview = React.forwardRef<HTMLDivElement, FolderPreviewProps>(
     (
         {
@@ -1073,7 +995,6 @@ export const FolderPreview = React.forwardRef<HTMLDivElement, FolderPreviewProps
         const colors = variantColors[variant];
         const sizes = sizeConfig[size];
 
-        // the upstream demo placeholders are dropped: an empty folder must not preview fake files
         const imageList = images;
         const fileList = files;
 

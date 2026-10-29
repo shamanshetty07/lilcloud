@@ -2,8 +2,6 @@ import { memo, type ReactNode } from "react";
 import { LiquidMetal as LiquidMetalShader } from "@paper-design/shaders-react";
 import { Link } from "../lib/router.tsx";
 
-// adapted from VengeanceUI's liquid-metal (shadcn registry item), wired to our router and dark theme
-
 export interface LiquidMetalProps {
   colorBack?: string;
   colorTint?: string;
@@ -14,7 +12,6 @@ export interface LiquidMetalProps {
   className?: string;
 }
 
-// animated chrome shader that fills its positioned parent
 export const LiquidMetal = memo(function LiquidMetal({
   colorBack = "#888888", colorTint = "#ffffff", speed = 0.4, repetition = 4, distortion = 0.15, scale = 1, className = "",
 }: LiquidMetalProps) {
@@ -29,7 +26,6 @@ export const LiquidMetal = memo(function LiquidMetal({
   );
 });
 
-// pill link with a liquid-metal border; `borderWidth` is the visible chrome ring in px
 export function LiquidMetalLink({ href, children, borderWidth = 4, className = "" }: { href: string; children: ReactNode; borderWidth?: number; className?: string }) {
   return (
     <Link href={href} className={`group relative inline-flex rounded-full shadow-[0_20px_50px_-12px_rgba(0,0,0,.6)] transition-transform active:scale-[.98] ${className}`}>

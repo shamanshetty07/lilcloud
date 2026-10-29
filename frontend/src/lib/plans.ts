@@ -9,7 +9,6 @@ export type Plan = {
   available: boolean;
 };
 
-// paid plans are announced but not purchasable yet
 export const PLANS: Plan[] = [
   {
     id: "free", name: "Free", price: "$0", period: "forever", storage: "1 GB", available: true,

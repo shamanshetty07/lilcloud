@@ -12,7 +12,6 @@ type PreviewLine = { name: string; type?: "muted" };
 let uploadKey = 0;
 
 const PREVIEW_LINES = 6;
-// what the hover bubble lists for a folder: subfolders first, then files, capped with a "+N more" line
 const summarize = (c: FolderContents): PreviewLine[] => {
   const names = [...c.folders.map(f => `${f.name}/`), ...c.files.map(f => f.name)];
   if (names.length === 0) return [{ name: "empty", type: "muted" }];
@@ -39,11 +38,9 @@ export default function Dashboard() {
   const input = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
-    // contents may have changed, so hover previews are fetched again on demand
     try { setData(await api.folder(folderId)); setPreviews({}); setError(""); }
     catch (e) {
       setError((e as Error).message);
-      // the folder we were in may have been deleted elsewhere: fall back to the top level
       if (folderId) setFolderId(null); else setData(d => d ?? { folder: null, breadcrumb: [], folders: [], files: [] });
     }
   }, [folderId]);
@@ -60,7 +57,6 @@ export default function Dashboard() {
       if (file.size > MAX_FILE_SIZE) { patch(key, { error: "Larger than 25 MB" }); continue; }
       try {
         const saved = await api.upload(file, pct => patch(key, { pct }), { folderId: target });
-        // only show it here if the user is still looking at the folder it went into
         setData(d => d && (d.folder?.id ?? null) === target ? { ...d, files: [saved, ...d.files] } : d);
         loadUsage();
         setUploads(u => u.filter(x => x.key !== key));
@@ -72,7 +68,6 @@ export default function Dashboard() {
     try { await fn(); } catch (e) { setError((e as Error).message); }
   };
 
-  // fetched the first time a folder is hovered or focused, then cached until the next load()
   const peek = (id: string) => {
     if (previews[id]) return;
     setPreviews(p => ({ ...p, [id]: [{ name: "loading…", type: "muted" }] }));
@@ -208,7 +203,6 @@ export default function Dashboard() {
           <p className="mt-3 rounded-xl border border-line p-10 text-center text-sm text-muted">{total === 0 ? (data.folder ? "This folder is empty." : "Nothing here yet. Upload your first item above.") : "Nothing matches your search."}</p>
         ) : (<>
           {folders.length > 0 && (
-            // top padding leaves room for the contents bubble that pops up above the first row
             <ul className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] gap-x-4 gap-y-8 rounded-xl border border-line px-4 pb-6 pt-12">
               {folders.map(f => (
                 <li key={f.id} className="flex min-w-0 flex-col items-center gap-2">

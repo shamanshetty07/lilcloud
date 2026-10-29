@@ -13,7 +13,6 @@ import { errorHandler } from "../security/error-handler.ts"
 const app =express();
 
 app.disable("x-powered-by")
-// cloudflared connects from loopback; trust it so req.ip is the real client, not 127.0.0.1
 app.set("trust proxy","loopback")
 app.use(securityHeaders)
 app.use(cors)

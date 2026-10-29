@@ -1,7 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { env } from "../lib/env.ts";
 
-// explicit allowlist from CORS_ORIGINS; auth uses bearer tokens so no credentials/cookies are allowed
 export const makeCors=(allowed:string[])=>(req:Request,res:Response,next:NextFunction)=>{
     const origin=req.headers.origin;
     if(origin && allowed.includes(origin)){

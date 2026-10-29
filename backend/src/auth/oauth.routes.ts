@@ -22,7 +22,6 @@ const fail = (res: Response, reason: string) => {
     return res.redirect(`${FRONTEND_URL}/signin?error=${encodeURIComponent(reason)}`);
 };
 
-// which social buttons the UI should treat as live
 router.get("/providers", (_req, res) => {
     res.json({ google: isConfigured("google"), github: isConfigured("github") });
 });
@@ -34,7 +33,6 @@ router.get("/:provider/start", limiter, (req, res) => {
 
     const state = randomBytes(24).toString("base64url");
     const verifier = randomBytes(32).toString("base64url");
-    // state + PKCE verifier ride in a short-lived signed httpOnly cookie, binding the flow to this browser
     const tx = jwt.sign({ provider, state, verifier }, env.JWT_SECRET, { expiresIn: "10m" });
     res.cookie(COOKIE, tx, { httpOnly: true, sameSite: "lax", secure, path: COOKIE_PATH, maxAge: 10 * 60_000 });
     return res.redirect(buildAuthUrl(provider, redirectUri(provider), state, verifier));
@@ -61,7 +59,6 @@ router.get("/:provider/callback", limiter, async (req, res) => {
         const user = await findOrCreateOAuthUser(profile);
         void logAuthEvent({ eventType: "login", status: "success", userId: user.user_id, email: user.email, ipAddress: req.ip });
         res.clearCookie(COOKIE, { path: COOKIE_PATH });
-        // token goes in the URL fragment so it never reaches server logs or Referer headers
         return res.redirect(`${FRONTEND_URL}/auth/callback#token=${issueToken(user)}`);
     } catch (err) {
         const msg = (err as Error).message;

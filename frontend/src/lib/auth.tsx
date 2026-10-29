@@ -13,8 +13,6 @@ const Ctx = createContext<AuthState>(null as never);
 export const useAuth = () => useContext(Ctx);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // with a remembered user the app renders straight away instead of waiting on /auth/me;
-  // that check still runs, and a 401 from it (or any later request) signs the user out as before
   const [user, setUser] = useState<User | null>(() => tokenStore.get() ? userStore.get() : null);
   const [loading, setLoading] = useState(() => !!tokenStore.get() && !userStore.get());
 
@@ -24,7 +22,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     api.me()
       .then(r => { userStore.set(r.user); setUser(r.user); })
       .catch(e => {
-        // a network blip keeps the remembered session; a rejected token ends it
         if (e instanceof ApiError && e.status === 0 && userStore.get()) return;
         tokenStore.clear(); setUser(null);
       })

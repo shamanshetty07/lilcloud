@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, type FolderContents } from "../lib/api.ts";
 
-// choose a destination folder. `exclude` hides the folder being moved (and so its subtree); the server re-checks every move
 export function FolderPicker({ exclude, onPick, onClose }: { exclude?: string; onPick: (folderId: string | null) => void; onClose: () => void }) {
   const [at, setAt] = useState<string | null>(null);
   const [data, setData] = useState<FolderContents | null>(null);

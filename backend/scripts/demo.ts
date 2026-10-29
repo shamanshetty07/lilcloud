@@ -1,4 +1,3 @@
-// starts the backend and a Cloudflare quick tunnel together; Ctrl+C stops both
 import { env } from "../src/lib/env.ts";
 
 const port=env.PORT;
@@ -25,7 +24,6 @@ process.on("SIGINT",()=>stop());
 process.on("SIGTERM",()=>stop());
 backend.exited.then(code=>{ if(!stopping){ console.error(`backend exited (code ${code})`); stop(1); } });
 
-// wait until the backend answers before opening the tunnel
 let healthy=false;
 for(let i=0;i<60 && !healthy && !stopping;i++){
     healthy=await fetch(`${local}/api/v1/health`).then(r=>r.status<500 || r.status===503,()=>false);

@@ -14,7 +14,6 @@ const schema = z.object({
     plan: z.enum(WAITLIST_PLANS),
 }).strict();
 
-// public on purpose: people can join before they have an account
 router.post("/", limiter, validateBody(schema), async (req, res) => {
     const { email, plan } = req.body as z.infer<typeof schema>;
     try {
@@ -23,7 +22,6 @@ router.post("/", limiter, validateBody(schema), async (req, res) => {
             { $setOnInsert: { email, plan, ipAddress: req.ip, createdAt: new Date() } },
             { upsert: true },
         );
-        // only notify for genuinely new signups
         if (created.upsertedCount > 0) {
             void (async () => {
                 if (await sendWaitlistNotification({ email, plan })) await WaitlistModel.updateOne({ email, plan }, { notified: true });

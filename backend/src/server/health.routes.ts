@@ -4,7 +4,6 @@ import { storage } from "../files/storage.ts";
 
 const router=Router();
 
-// public: reports only ok/fail per component, never paths or error details
 router.get("/",async (_req,res)=>{
     const database=await prisma.$queryRaw`SELECT 1`.then(()=>true,()=>false);
     const disk=await storage.health();

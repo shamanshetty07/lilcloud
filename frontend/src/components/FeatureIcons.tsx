@@ -1,7 +1,5 @@
-// tiny looping icons; the motion lives in styles.css and is amplified when the parent card is hovered
 const base = { width: 32, height: 32, viewBox: "0 0 32 32", fill: "none", stroke: "currentColor", strokeWidth: 1.5, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true } as const;
 
-// stacked items sliding like a growing collection
 export const IconStack = () => (
   <svg {...base} className="ico ico-stack">
     <rect x="6" y="6" width="20" height="6" rx="2" style={{ "--i": 0 } as React.CSSProperties} />
@@ -10,7 +8,6 @@ export const IconStack = () => (
   </svg>
 );
 
-// padlock whose shackle lifts on hover
 export const IconLock = () => (
   <svg {...base} className="ico ico-lock">
     <rect x="7" y="14" width="18" height="13" rx="3" />
@@ -19,7 +16,6 @@ export const IconLock = () => (
   </svg>
 );
 
-// globe with a ring pulsing outward
 export const IconGlobe = () => (
   <svg {...base} className="ico ico-globe">
     <circle className="ring" cx="16" cy="16" r="10" />
@@ -28,7 +24,6 @@ export const IconGlobe = () => (
   </svg>
 );
 
-// progress bar filling on a loop
 export const IconBolt = () => (
   <svg {...base} className="ico ico-bar">
     <rect x="5" y="12" width="22" height="8" rx="4" />

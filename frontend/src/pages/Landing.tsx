@@ -10,7 +10,6 @@ import { CtaBars } from "../components/CtaBars.tsx";
 import { GitHubLink, REPO_URL } from "../components/GitHubLink.tsx";
 import { IconStack, IconLock, IconGlobe, IconBolt } from "../components/FeatureIcons.tsx";
 
-// page-turn click for the header nav; ignores clicks between links, and a blocked/failed sound is harmless
 const turnPage = (e: React.MouseEvent) => {
   if ((e.target as HTMLElement).closest("a")) playSound(iAbilitiesTurnPageBSound.dataUri, { volume: 0.5 }).catch(() => {});
 };

@@ -53,7 +53,6 @@ model File {
   file_type   String
   uploaded_at DateTime @default(now())
   deleted_at  DateTime?
-  // null means the file sits at the root of the owner's storage
   folder_id   String?  @db.Uuid
 
   owner       User              @relation(fields: [owner_id], references: [user_id], onDelete: Restrict)
@@ -81,8 +80,6 @@ model FilePermission {
   @@map("file_permissions")
 }
 
-// sibling names are unique per owner, case-insensitively; that rule lives in the migration as
-// raw SQL indexes because prisma cannot express lower(folder_name) or the nullable-parent root case
 model Folder {
   folder_id        String   @id @default(uuid()) @db.Uuid
   owner_id         Int
@@ -101,7 +98,6 @@ model Folder {
   @@map("folders")
 }
 
-// one row per user and file, viewed_at is bumped on every new view
 model FileViewHistory {
   view_id   Int      @id @default(autoincrement())
   user_id   Int
@@ -145,7 +141,6 @@ model GroupMember {
   @@map("group_members")
 }
 
-// links an existing file to a group, so no blob is ever copied
 model GroupFile {
   group_file_id Int      @id @default(autoincrement())
   group_id      String   @db.Uuid

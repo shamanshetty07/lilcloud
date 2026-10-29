@@ -32,7 +32,6 @@ body { margin: 0; -webkit-font-smoothing: antialiased; }
 .corner { position:absolute; width:12px; height:12px; border-color:var(--color-line-strong); }
 .btn-social { text-transform:none; letter-spacing:0; font-family:var(--font-sans); font-size:.875rem; font-weight:500; padding:.65rem 1.25rem; }
 
-/* ---------- motion ---------- */
 @keyframes fade-up { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.5px); } }
@@ -42,7 +41,6 @@ body { margin: 0; -webkit-font-smoothing: antialiased; }
 .reveal { opacity: 0; transform: translateY(16px); transition: opacity .65s cubic-bezier(.2,.7,.2,1), transform .65s cubic-bezier(.2,.7,.2,1); transition-delay: var(--d, 0ms); }
 .reveal.in { opacity: 1; transform: none; }
 
-/* hero entrance: children rise in one after another */
 .hero-in > * { animation: fade-up .8s cubic-bezier(.2,.7,.2,1) both; }
 .hero-in > :nth-child(5) { animation-delay: .05s; }
 .hero-in > :nth-child(6) { animation-delay: .15s; }
@@ -50,7 +48,6 @@ body { margin: 0; -webkit-font-smoothing: antialiased; }
 .hero-in > :nth-child(8) { animation-delay: .45s; }
 .hero-in > i.corner { animation: fade-in 1.2s ease both; animation-delay: .1s; }
 
-/* feature cards */
 .feature { transition: background-color .25s ease; }
 .feature:hover { background: var(--color-surface); }
 .feature .num { transition: color .25s ease, transform .25s ease; display: inline-block; }
@@ -66,15 +63,12 @@ body { margin: 0; -webkit-font-smoothing: antialiased; }
 .ico-globe .ring { transform-origin: 16px 16px; animation: ring 2.6s ease-out infinite; }
 .ico-bar .fill { transform-origin: 8px 16px; animation: bar 2.4s cubic-bezier(.4,0,.2,1) infinite; }
 
-/* step + plan cards lift slightly */
 .lift { transition: transform .25s cubic-bezier(.2,.7,.2,1), border-color .25s ease; }
 .lift:hover { transform: translateY(-3px); border-color: var(--color-line-strong); }
 
-/* buttons: arrow-ish nudge and press feedback */
 .btn { transition: background .15s, border-color .15s, opacity .15s, transform .15s; }
 .btn:active:not(:disabled) { transform: scale(.97); }
 
-/* CTA equalizer backdrop (components/CtaBars.tsx) */
 @keyframes breathe { 0%, 100% { transform: scaleY(.82); } 50% { transform: scaleY(1); } }
 .cta-glow { background: radial-gradient(60% 55% at 50% 100%, rgba(96,128,255,.22), transparent 70%), var(--color-surface); }
 .cta-bars { position:absolute; inset:0; display:flex; align-items:flex-end; gap:1px; pointer-events:none;
@@ -84,7 +78,6 @@ body { margin: 0; -webkit-font-smoothing: antialiased; }
 .cta-bars > span > i { display:block; height:100%; transform-origin:bottom; animation: breathe 5.5s ease-in-out infinite; animation-delay: calc(var(--i) * -.22s);
   border-top:1px solid rgba(214,226,255,.55); border-radius:2px 2px 0 0;
   background: linear-gradient(to top, rgba(126,178,232,.85), rgba(22,96,226,.7) 30%, rgba(34,24,140,.55) 62%, transparent); }
-/* soft dark pool behind the CTA copy so it stays readable where bars rise behind it (narrow screens) */
 .cta-scrim { background: radial-gradient(closest-side, rgba(22,22,22,.85), rgba(22,22,22,.5) 60%, transparent); }
 
 @media (prefers-reduced-motion: reduce) {

@@ -37,7 +37,7 @@ describe.skipIf(!enabled)("recently viewed",()=>{
         const ids:string[]=[];
         for(const n of ["a","b","c","d","e"]) ids.push((await U("POST","/files/upload",form(`${n}.txt`,n))).body.file.id);
         for(const id of ids){ await U("POST",`/files/${id}/view`); await sleep(5); }
-        await U("POST",`/files/${ids[0]}/view`); // a is now the most recent
+        await U("POST",`/files/${ids[0]}/view`);
         const page1=await recent(U,"?limit=2");
         expect(page1.items.map((i:any)=>i.id)).toEqual([ids[0],ids[4]]);
         expect(page1.nextCursor).toBeTruthy();
@@ -86,12 +86,9 @@ describe.skipIf(!enabled)("recently viewed",()=>{
         expect(await prisma.fileViewHistory.count({where:{user_id:a.id,file_id:fileId}})).toBe(0);
         const items=(await recent(B)).items;
         expect(items.map((i:any)=>i.id)).toContain(fileId);
-        // the generic endpoint honours the same membership
         expect((await B("POST",`/files/${fileId}/view`)).status).toBe(200);
-        // outsiders cannot view through the group
         expect((await C("POST",`/groups/${g.id}/files/${fileId}/view`)).status).toBe(404);
         expect((await C("POST",`/files/${fileId}/view`)).status).toBe(404);
-        // removal: the history row remains but the unreadable file is hidden
         await A("DELETE",`/groups/${g.id}/members/${b.id}`);
         expect((await recent(B)).items.map((i:any)=>i.id)).not.toContain(fileId);
         expect((await B("POST",`/files/${fileId}/view`)).status).toBe(404);
