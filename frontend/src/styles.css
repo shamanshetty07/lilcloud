@@ -74,8 +74,28 @@ body { margin: 0; -webkit-font-smoothing: antialiased; }
 .btn { transition: background .15s, border-color .15s, opacity .15s, transform .15s; }
 .btn:active:not(:disabled) { transform: scale(.97); }
 
+/* auth: liquid-chrome blobs */
+@keyframes morph {
+  0%, 100% { border-radius: 58% 42% 63% 37% / 45% 58% 42% 55%; transform: translate(0, 0) rotate(0deg); }
+  50% { border-radius: 40% 60% 38% 62% / 60% 38% 62% 40%; transform: translate(var(--dx, 10px), var(--dy, -14px)) rotate(var(--rot, 10deg)); }
+}
+.chrome {
+  position: absolute; display: block;
+  background:
+    radial-gradient(ellipse 18% 14% at 30% 24%, #fff 0 30%, rgba(255,255,255,0) 100%),
+    radial-gradient(ellipse 55% 22% at 62% 74%, rgba(255,255,255,.85), rgba(255,255,255,0) 70%),
+    radial-gradient(ellipse 70% 30% at 40% 52%, #050505 0 35%, rgba(5,5,5,0) 75%),
+    radial-gradient(ellipse 40% 60% at 82% 40%, rgba(220,220,220,.7), rgba(220,220,220,0) 70%),
+    radial-gradient(circle at 38% 32%, #e6e6e6, #9a9a9a 28%, #3a3a3a 52%, #0c0c0c 78%, #000);
+  box-shadow: inset -22px -28px 48px rgba(0,0,0,.85), inset 16px 18px 34px rgba(255,255,255,.35), 0 40px 80px rgba(0,0,0,.7);
+  filter: url(#liquid) contrast(1.1);
+  animation: morph var(--dur, 18s) ease-in-out infinite;
+}
+.chrome-ring { -webkit-mask: radial-gradient(closest-side, transparent 0 34%, #000 37%); mask: radial-gradient(closest-side, transparent 0 34%, #000 37%); }
+.glass { background: rgba(14,14,14,.42); border: 1px solid rgba(255,255,255,.09); -webkit-backdrop-filter: blur(28px) saturate(1.2); backdrop-filter: blur(28px) saturate(1.2); box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 30px 80px rgba(0,0,0,.6); }
+
 @media (prefers-reduced-motion: reduce) {
   .reveal { opacity: 1; transform: none; transition: none; }
-  .hero-in > *, .ico-stack rect, .ico-globe .ring, .ico-bar .fill { animation: none !important; }
+  .hero-in > *, .ico-stack rect, .ico-globe .ring, .ico-bar .fill, .chrome { animation: none !important; }
   .lift, .feature, .feature * { transition: none !important; }
 }
