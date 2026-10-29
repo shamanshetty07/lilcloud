@@ -6,6 +6,7 @@ import { useAuth } from "../lib/auth.tsx";
 import { Logo } from "../components/Logo.tsx";
 import { PlanCards } from "../components/PlanCards.tsx";
 import { Reveal } from "../components/Reveal.tsx";
+import { CtaBars } from "../components/CtaBars.tsx";
 import { IconStack, IconLock, IconGlobe, IconBolt } from "../components/FeatureIcons.tsx";
 
 // page-turn click for the header nav; ignores clicks between links, and a blocked/failed sound is harmless
@@ -104,9 +105,13 @@ export default function Landing() {
                 </Reveal>
               ))}
             </ol>
-            <Reveal className="mt-14 flex flex-col items-center gap-4 rounded-xl border border-line bg-surface p-10 text-center">
-              <h3 className="text-2xl font-bold tracking-[-0.04em]">Ready to try it?</h3>
-              <LiquidMetalLink href={user ? "/app" : "/signup"}>Create an account →</LiquidMetalLink>
+            <Reveal className="cta-glow relative mt-14 overflow-hidden rounded-xl border border-line px-6 py-20 text-center sm:py-28">
+              <CtaBars />
+              <div className="cta-scrim relative -mx-6 flex flex-col items-center gap-5 px-6 py-6">
+                <h3 className="text-4xl font-bold tracking-[-0.04em] sm:text-6xl">Ready to try it?</h3>
+                <p className="max-w-md text-muted">1 GB free, no card needed. Upload your first file in under a minute.</p>
+                <LiquidMetalLink href={user ? "/app" : "/signup"}>Create an account →</LiquidMetalLink>
+              </div>
             </Reveal>
           </div>
         </section>

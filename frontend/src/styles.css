@@ -74,7 +74,21 @@ body { margin: 0; -webkit-font-smoothing: antialiased; }
 .btn { transition: background .15s, border-color .15s, opacity .15s, transform .15s; }
 .btn:active:not(:disabled) { transform: scale(.97); }
 
+/* CTA equalizer backdrop (components/CtaBars.tsx) */
+@keyframes breathe { 0%, 100% { transform: scaleY(.82); } 50% { transform: scaleY(1); } }
+.cta-glow { background: radial-gradient(60% 55% at 50% 100%, rgba(96,128,255,.22), transparent 70%), var(--color-surface); }
+.cta-bars { position:absolute; inset:0; display:flex; align-items:flex-end; gap:1px; pointer-events:none;
+  -webkit-mask-image: linear-gradient(to top, #000 35%, transparent 92%); mask-image: linear-gradient(to top, #000 35%, transparent 92%); }
+.cta-bars > span { flex:1; height:calc(var(--h) * 100%); transform-origin:bottom; transform:scaleY(calc(1 + var(--lift, 0)));
+  transition: transform .6s cubic-bezier(.2,.7,.2,1); }
+.cta-bars > span > i { display:block; height:100%; transform-origin:bottom; animation: breathe 5.5s ease-in-out infinite; animation-delay: calc(var(--i) * -.22s);
+  border-top:1px solid rgba(214,226,255,.55); border-radius:2px 2px 0 0;
+  background: linear-gradient(to top, rgba(126,178,232,.85), rgba(22,96,226,.7) 30%, rgba(34,24,140,.55) 62%, transparent); }
+/* soft dark pool behind the CTA copy so it stays readable where bars rise behind it (narrow screens) */
+.cta-scrim { background: radial-gradient(closest-side, rgba(22,22,22,.85), rgba(22,22,22,.5) 60%, transparent); }
+
 @media (prefers-reduced-motion: reduce) {
+  .cta-bars > span > i { animation: none; }
   .reveal { opacity: 1; transform: none; transition: none; }
   .hero-in > *, .ico-stack rect, .ico-globe .ring, .ico-bar .fill { animation: none !important; }
   .lift, .feature, .feature * { transition: none !important; }
