@@ -18,10 +18,12 @@ export const requireAuth=async (req:Request,res:Response,next:NextFunction)=>{
     // a valid signature is not enough: the account must still exist and be active
     // (covers deleted or disabled users whose 7 day token has not expired yet)
     try{
-        const user=await prisma.user.findUnique({where:{user_id:payload.id},select:{is_active:true}});
+        // username/email ride along so /auth/me can answer without a second database round trip
+        const user=await prisma.user.findUnique({where:{user_id:payload.id},select:{is_active:true,username:true,email:true}});
         if(!user || !user.is_active){
             return res.status(401).json({message:"Invalid or expired token"});
         }
+        (req as any).authUser={id:payload.id,name:user.username,email:user.email};
     }
     catch(err){
         console.error("auth lookup failed:",err);

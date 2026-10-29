@@ -23,10 +23,18 @@ export class ApiError extends Error {
 }
 
 const TOKEN_KEY = "lilcloud.token";
+const USER_KEY = "lilcloud.user";
 export const tokenStore = {
   get: () => { try { return localStorage.getItem(TOKEN_KEY); } catch { return null; } },
   set: (t: string) => { try { localStorage.setItem(TOKEN_KEY, t); } catch {} },
-  clear: () => { try { localStorage.removeItem(TOKEN_KEY); } catch {} },
+  // the remembered user belongs to the token, so it goes with it
+  clear: () => { try { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(USER_KEY); } catch {} },
+};
+
+// last known signed-in user, so the UI can render at once while /auth/me re-checks in the background
+export const userStore = {
+  get: (): User | null => { try { return JSON.parse(localStorage.getItem(USER_KEY) ?? "null"); } catch { return null; } },
+  set: (u: User) => { try { localStorage.setItem(USER_KEY, JSON.stringify(u)); } catch {} },
 };
 
 // the UI listens for this to drop back to the sign-in screen when a token expires

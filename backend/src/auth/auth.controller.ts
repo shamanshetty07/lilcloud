@@ -35,7 +35,9 @@ export const signin=async (req:Request,res:Response)=>{
 
 export const me=async (req:Request,res:Response)=>{
     try{
-        const result=await meService((req as any).userId);
+        // requireAuth already loaded the (active) user; only fall back to a query if it is ever mounted without it
+        const authUser=(req as any).authUser;
+        const result=authUser?{user:authUser}:await meService((req as any).userId);
         return res.status(200).json(result);
     }
     catch(err){
