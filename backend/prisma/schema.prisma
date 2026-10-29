@@ -52,6 +52,7 @@ model File {
   file_size   BigInt
   file_type   String
   uploaded_at DateTime @default(now())
+  deleted_at  DateTime?
   // null means the file sits at the root of the owner's storage
   folder_id   String?  @db.Uuid
 
@@ -89,6 +90,7 @@ model Folder {
   folder_name      String
   created_at       DateTime @default(now())
   updated_at       DateTime @updatedAt
+  deleted_at       DateTime?
 
   owner    User     @relation(fields: [owner_id], references: [user_id], onDelete: Restrict)
   parent   Folder?  @relation("FolderTree", fields: [parent_folder_id], references: [folder_id], onDelete: Restrict)

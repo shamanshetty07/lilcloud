@@ -42,7 +42,7 @@ const loadRecent=async(userId:number,take:number,c:{at:Date,id:number}|null)=>{
     const rows=await prisma.fileViewHistory.findMany({
         where:{
             user_id:userId,
-            file:readFilter(userId),
+            file:{AND:[readFilter(userId),{deleted_at:null}]},
             ...(c?{OR:[{viewed_at:{lt:c.at}},{viewed_at:c.at,view_id:{lt:c.id}}]}:{})
         },
         include:{file:true},

@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { createFolderService, getFolderContentsService, renameFolderService, moveFolderService, deleteFolderService } from "./folders.service.ts";
+import { createFolderService, getFolderContentsService, renameFolderService, moveFolderService, deleteFolderService, trashFolderService, restoreFolderService } from "./folders.service.ts";
 import { sendError } from "../lib/errors.ts";
 
 const uid=(req:Request)=>(req as any).userId as number;
@@ -29,6 +29,16 @@ export const move=async (req:Request,res:Response)=>{
 }
 
 export const remove=async (req:Request,res:Response)=>{
+    try{ await trashFolderService(uid(req),String(req.params.id)); return res.status(204).end(); }
+    catch(err){ return sendError(res,err,"Could not move folder to trash"); }
+}
+
+export const restore=async (req:Request,res:Response)=>{
+    try{ await restoreFolderService(uid(req),String(req.params.id)); return res.status(204).end(); }
+    catch(err){ return sendError(res,err,"Could not restore folder"); }
+}
+
+export const permanentlyDelete=async (req:Request,res:Response)=>{
     try{ return res.json(await deleteFolderService(uid(req),String(req.params.id))); }
-    catch(err){ return sendError(res,err,"Could not delete folder"); }
+    catch(err){ return sendError(res,err,"Could not permanently delete folder"); }
 }

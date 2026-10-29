@@ -114,7 +114,7 @@ export default function Docs() {
           <P>Click <B>download</B> on an item's row. It's saved to your device exactly as you uploaded it, with its original name.</P>
 
           <H id="delete">Deleting</H>
-          <P>Click <B>delete</B>, then <B>confirm delete</B>. Deleting is <B>permanent</B>. The item is removed completely and cannot be recovered, so download a copy first if you might need it.</P>
+          <P>Choose <B>trash</B> on a file or folder to move it to Trash. Folders bring everything inside them along. Open the <B>Trash</B> tab to restore items or delete them permanently. Permanently deleted items cannot be recovered.</P>
 
           <H id="limits">Limits &amp; what you can store</H>
           <Table head={["Limit", "Value"]} rows={[
@@ -132,7 +132,7 @@ export default function Docs() {
           <P>Need to store one of these? Put it in a <code className="font-mono text-fg">.zip</code> archive first. Documents, images, audio, video, PDFs, spreadsheets and archives are all fine.</P>
 
           <H id="plans">Storage plans</H>
-          <P>Every account includes <B>1 GB of free storage</B>. Your usage is shown on your Storage page. Deleting items frees up space immediately.</P>
+          <P>Every account includes <B>1 GB of free storage</B>. Your usage is shown on your Storage page. Items in Trash still use storage until you delete them permanently.</P>
           <Table head={["Plan", "Storage", "Price", "Status"]} rows={[
             ["Free", "1 GB", "$0", "Available"],
             ["Plus", "50 GB", "$20 per year", "Coming soon"],
@@ -173,7 +173,7 @@ export default function Docs() {
           <h3 className="mt-5 font-medium">Can I preview things in the browser?</h3>
           <P>Not yet. Download it to open it.</P>
           <h3 className="mt-5 font-medium">Will my stuff ever expire?</h3>
-          <P>No. Everything stays until you delete it.</P>
+          <P>No. Items stay in your storage or Trash until you delete them permanently.</P>
           <h3 className="mt-5 font-medium">Can I rename something?</h3>
           <P>Not yet. Upload it again under the new name and delete the old one.</P>
 

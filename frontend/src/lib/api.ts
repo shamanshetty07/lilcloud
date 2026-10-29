@@ -16,6 +16,8 @@ export type Group = { id: string; name: string; role: GroupRole; memberCount: nu
 export type Member = { userId: number; username: string; role: GroupRole; joinedAt: string };
 export type GroupFile = FileItem & { uploadedBy: { id: number; name: string }; sharedAt: string };
 export type Usage = { plan: string; usedBytes: number; limitBytes: number };
+export type TrashedFile = FileItem & { deletedAt: string };
+export type TrashedFolder = { id: string; name: string; parentId: string | null; deletedAt: string };
 export type Health = { status: "ok" | "degraded"; database: string; storage: string; warning?: string };
 
 export class ApiError extends Error {
@@ -72,6 +74,9 @@ export const api = {
     request<{ message: string }>("/waitlist", { method: "POST", body: JSON.stringify({ email, plan }) }, false),
   list: () => request<{ files: FileItem[] }>("/files"),
   remove: (id: string) => request<void>(`/files/${id}`, { method: "DELETE" }),
+  trash: () => request<{ files: TrashedFile[]; folders: TrashedFolder[] }>("/files/trash"),
+  restoreFile: (id: string) => request<void>(`/files/trash/${id}/restore`, { method: "POST" }),
+  permanentlyDeleteFile: (id: string) => request<void>(`/files/trash/${id}`, { method: "DELETE" }),
   health: () => fetch(`${API_URL}/health`).then(r => r.json() as Promise<Health>),
 
   folder: (id: string | null) => request<FolderContents>(`/folders/${id ?? "root"}`),
@@ -81,7 +86,9 @@ export const api = {
     request<{ folder: FolderItem }>(`/folders/${id}`, { method: "PATCH", body: JSON.stringify({ name }) }),
   moveFolder: (id: string, folderId: string | null) =>
     request<{ folder: FolderItem }>(`/folders/${id}/move`, { method: "PATCH", body: JSON.stringify({ folderId }) }),
-  deleteFolder: (id: string) => request<{ deletedFolders: number; deletedFiles: number }>(`/folders/${id}`, { method: "DELETE" }),
+  deleteFolder: (id: string) => request<void>(`/folders/${id}`, { method: "DELETE" }),
+  restoreFolder: (id: string) => request<void>(`/folders/trash/${id}/restore`, { method: "POST" }),
+  permanentlyDeleteFolder: (id: string) => request<{ deletedFolders: number; deletedFiles: number }>(`/folders/trash/${id}/permanent`, { method: "DELETE" }),
   moveFile: (id: string, folderId: string | null) =>
     request<{ file: FileItem }>(`/files/${id}/move`, { method: "PATCH", body: JSON.stringify({ folderId }) }),
 

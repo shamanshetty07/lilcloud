@@ -31,6 +31,10 @@ body { margin: 0; -webkit-font-smoothing: antialiased; }
 .hatch { background-image:repeating-linear-gradient(135deg,transparent 0 6px,rgba(255,255,255,.035) 6px 7px); }
 .corner { position:absolute; width:12px; height:12px; border-color:var(--color-line-strong); }
 .btn-social { text-transform:none; letter-spacing:0; font-family:var(--font-sans); font-size:.875rem; font-weight:500; padding:.65rem 1.25rem; }
+.auth-submit { min-height:3rem; font-weight:700; letter-spacing:.12em; box-shadow:0 0 0 1px rgba(237,237,237,.22), 0 5px 18px rgba(237,237,237,.08); }
+.auth-submit:hover:not(:disabled) { background:#fff; box-shadow:0 0 0 2px rgba(237,237,237,.3), 0 7px 22px rgba(237,237,237,.14); }
+.auth-submit:focus-visible { outline:3px solid #fff; outline-offset:3px; }
+.auth-submit:disabled { opacity:.78; }
 
 /* ---------- motion ---------- */
 @keyframes fade-up { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }

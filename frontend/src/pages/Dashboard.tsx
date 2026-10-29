@@ -231,7 +231,7 @@ export default function Dashboard() {
                     </form>
                   ) : confirming === f.id ? (
                     <span className="inline-flex flex-wrap justify-center gap-x-3 font-mono text-xs">
-                      <button className="text-danger" title="Deletes the folder and everything inside it" onClick={() => act(async () => { await api.deleteFolder(f.id); setConfirming(null); await load(); loadUsage(); })}>delete + contents</button>
+                      <button className="text-danger" title="Moves the folder and everything inside it to trash" onClick={() => act(async () => { await api.deleteFolder(f.id); setConfirming(null); await load(); })}>move contents to trash</button>
                       <button className="text-muted" onClick={() => setConfirming(null)}>cancel</button>
                     </span>
                   ) : (
@@ -272,7 +272,7 @@ export default function Dashboard() {
                     <td className="whitespace-nowrap px-4 py-3 text-right">
                       {confirming === f.id ? (
                         <span className="inline-flex items-center gap-3 font-mono text-xs">
-                          <button className="text-danger" onClick={() => act(async () => { await api.remove(f.id); setData(d => d && { ...d, files: d.files.filter(i => i.id !== f.id) }); setConfirming(null); loadUsage(); })}>confirm delete</button>
+                          <button className="text-danger" onClick={() => act(async () => { await api.remove(f.id); setData(d => d && { ...d, files: d.files.filter(i => i.id !== f.id) }); setConfirming(null); })}>move to trash</button>
                           <button className="text-muted" onClick={() => setConfirming(null)}>cancel</button>
                         </span>
                       ) : (
@@ -280,7 +280,7 @@ export default function Dashboard() {
                           <button className="hover:underline" onClick={() => act(() => api.open(f))}>open</button>
                           <button className="hover:underline" onClick={() => act(() => api.download(f))}>download</button>
                           <button className="hover:underline" onClick={() => setMoving({ kind: "file", item: f })}>move</button>
-                          <button className="text-muted hover:text-danger" onClick={() => setConfirming(f.id)}>delete</button>
+                          <button className="text-muted hover:text-danger" onClick={() => setConfirming(f.id)}>trash</button>
                         </span>
                       )}
                     </td>

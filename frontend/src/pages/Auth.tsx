@@ -58,7 +58,7 @@ export default function Auth({ mode }: { mode: "signin" | "signup" }) {
           <input className="input" type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={isUp ? 8 : 1} maxLength={72} autoComplete={isUp ? "new-password" : "current-password"} />
         </label>
         {error && <p role="alert" className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">{error}</p>}
-        <button className="btn btn-primary w-full" disabled={busy}>{busy ? "Please wait…" : isUp ? "Sign up" : "Sign in"}</button>
+        <button className="btn btn-primary auth-submit w-full" disabled={busy}>{busy ? "Please wait…" : isUp ? "Sign up" : "Sign in"}</button>
         <p className="text-center text-sm text-muted">
           {isUp ? "Already have an account? " : "New here? "}
           <Link href={isUp ? "/signin" : "/signup"} className="text-fg underline underline-offset-4">{isUp ? "Sign in" : "Create one"}</Link>

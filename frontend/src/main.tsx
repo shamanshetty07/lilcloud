@@ -9,6 +9,7 @@ import GroupPage from "./pages/GroupPage.tsx";
 import Docs from "./pages/Docs.tsx";
 import Pricing from "./pages/Pricing.tsx";
 import AuthCallback from "./pages/AuthCallback.tsx";
+import Trash from "./pages/Trash.tsx";
 import { useEffect } from "react";
 
 function Routes() {
@@ -27,6 +28,7 @@ function Routes() {
   if (needsAuth) {
     if (!user) return null;
     if (path === "/app/groups") return <Groups />;
+    if (path === "/app/trash") return <Trash />;
     const group = /^\/app\/groups\/([^/]+)$/.exec(path);
     if (group) return <GroupPage key={group[1]} id={group[1]} />;
     return <Dashboard />;

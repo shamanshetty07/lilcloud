@@ -73,13 +73,16 @@ describe.skipIf(!enabled)("redis cache",()=>{
             expect(ids(await A("GET",`/files?folderId=${dst}`))).toEqual([id]);
         });
 
-        test("deleting a file invalidates listings and usage",async()=>{
+        test("trashing a file invalidates listings and keeps its storage usage",async()=>{
             const id=await upload();
             expect(ids(await A("GET","/files"))).toEqual([id]);
             const used=(await A("GET","/files/usage")).body.usedBytes;
             expect((await A("DELETE",`/files/${id}`)).status).toBe(204);
             expect(ids(await A("GET","/files"))).toEqual([]);
-            expect((await A("GET","/files/usage")).body.usedBytes).toBeLessThan(used);
+            expect((await A("GET","/files/usage")).body.usedBytes).toBe(used);
+            expect((await A("GET","/files/trash")).body.files.map((file:any)=>file.id)).toContain(id);
+            expect((await A("POST",`/files/trash/${id}/restore`)).status).toBe(204);
+            expect(ids(await A("GET","/files"))).toEqual([id]);
         });
 
         test("folder create, rename, move and delete all invalidate",async()=>{
