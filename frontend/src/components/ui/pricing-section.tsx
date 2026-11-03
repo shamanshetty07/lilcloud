@@ -147,7 +147,7 @@ export function PricingSection({
             />
           )}
 
-          <div className="mt-9 grid w-full max-w-sm grid-cols-1 items-stretch gap-5 @[36rem]:max-w-none @[36rem]:grid-cols-3 @[36rem]:gap-3 @4xl:gap-6">
+          <div className="mt-9 grid w-full max-w-sm grid-cols-1 auto-rows-fr items-stretch gap-5 @[36rem]:max-w-none @[36rem]:grid-cols-3 @[36rem]:gap-3 @4xl:gap-6">
             {plans.map((plan, index) => (
               <PricingCard
                 key={plan.id}
