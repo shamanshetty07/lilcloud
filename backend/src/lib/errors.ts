@@ -1,5 +1,6 @@
 import type { Response } from "express";
 import { isValidKey } from "../files/storage.ts";
+export { isUniqueViolation } from "../db/errors.ts";
 
 export class DomainError extends Error {
     constructor(public status:number,message:string,public code?:string){ super(message); }
@@ -10,8 +11,6 @@ export const conflict=(message:string)=>new DomainError(409,message);
 export const badRequest=(message:string)=>new DomainError(400,message);
 
 export const isUuid=isValidKey;
-
-export const isUniqueViolation=(err:unknown)=>(err as {code?:string})?.code==="P2002";
 
 export const sendError=(res:Response,err:unknown,fallback:string)=>{
     if(err instanceof DomainError) return res.status(err.status).json({message:err.message,...(err.code?{code:err.code}:{})});

@@ -1,5 +1,7 @@
-import { prisma } from "../lib/prisma.ts";
-import { toDto, findAccessibleFile, readFilter } from "./files.service.ts";
+import { pool } from "../db/client.ts";
+import { isForeignKeyViolation } from "../db/errors.ts";
+import { toDto, findAccessibleFile } from "./files.service.ts";
+import { upsertView, listRecentViews } from "./views.repository.ts";
 import { notFound, badRequest } from "../lib/errors.ts";
 import { cached, invalidate, hash, scopes, TTL } from "../cache/cache.ts";
 
@@ -8,11 +10,8 @@ export const MAX_RECENT=50;
 export const recordViewService=async(userId:number,fileId:string)=>{
     const file=await findAccessibleFile(userId,fileId,"READ");
     if(!file) throw notFound("File not found");
-    const view=await prisma.fileViewHistory.upsert({
-        where:{user_id_file_id:{user_id:userId,file_id:file.file_id}},
-        create:{user_id:userId,file_id:file.file_id},
-        update:{viewed_at:new Date()}
-    }).catch(err=>{ throw (err as {code?:string}).code==="P2003"?notFound("File not found"):err; });
+    const view=await upsertView(pool,userId,file.file_id)
+        .catch(err=>{ throw isForeignKeyViolation(err)?notFound("File not found"):err; });
     await invalidate(scopes.userRecent(userId));
     return {fileId:file.file_id,viewedAt:view.viewed_at};
 }
@@ -34,16 +33,7 @@ export const listRecentService=async(userId:number,limit:number,cursor?:string)=
 }
 
 const loadRecent=async(userId:number,take:number,c:{at:Date,id:number}|null)=>{
-    const rows=await prisma.fileViewHistory.findMany({
-        where:{
-            user_id:userId,
-            file:{AND:[readFilter(userId),{deleted_at:null}]},
-            ...(c?{OR:[{viewed_at:{lt:c.at}},{viewed_at:c.at,view_id:{lt:c.id}}]}:{})
-        },
-        include:{file:true},
-        orderBy:[{viewed_at:"desc"},{view_id:"desc"}],
-        take:take+1
-    });
+    const rows=await listRecentViews(pool,userId,take+1,c);
     const page=rows.slice(0,take);
     const last=page[page.length-1];
     return {

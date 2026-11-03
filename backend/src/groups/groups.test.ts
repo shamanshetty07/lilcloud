@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeAll } from "bun:test";
-import { enabled, prisma, storage, reset, makeUser, http, form } from "../test-utils/setup.ts";
+import { enabled, db, countRows, storage, reset, makeUser, http, form } from "../test-utils/setup.ts";
 
 type U=Awaited<ReturnType<typeof makeUser>>;
 
@@ -43,16 +43,16 @@ describe.skipIf(!enabled)("storage groups",()=>{
         expect((await A("POST",`/groups/${g.id}/members`,{identifier:c.email.toUpperCase()})).status).toBe(201);
         expect((await A("POST",`/groups/${g.id}/members`,{identifier:b.username})).status).toBe(409);
         expect((await A("POST",`/groups/${g.id}/members`,{identifier:"nobody-here"})).status).toBe(404);
-        expect(await prisma.groupMember.count({where:{group_id:g.id}})).toBe(3);
+        expect(await countRows(`SELECT 1 FROM group_members WHERE group_id = $1`,[g.id])).toBe(3);
         expect((await B("GET","/groups")).body.groups.map((x:any)=>x.id)).toContain(g.id);
     });
 
     test("the database refuses duplicate memberships and duplicate file links",async()=>{
         const g=await group("Dup",[b]);
-        await expect((async()=>prisma.groupMember.create({data:{group_id:g.id,user_id:b.id}}))()).rejects.toBeDefined();
+        await expect((async()=>db.query(`INSERT INTO group_members (group_id, user_id) VALUES ($1, $2)`,[g.id,b.id]))()).rejects.toBeDefined();
         const f=(await A("POST","/files/upload",form("d.txt","d"))).body.file;
-        await prisma.groupFile.create({data:{group_id:g.id,file_id:f.id,shared_by:a.id}});
-        await expect((async()=>prisma.groupFile.create({data:{group_id:g.id,file_id:f.id,shared_by:a.id}}))()).rejects.toBeDefined();
+        await db.query(`INSERT INTO group_files (group_id, file_id, shared_by) VALUES ($1, $2, $3)`,[g.id,f.id,a.id]);
+        await expect((async()=>db.query(`INSERT INTO group_files (group_id, file_id, shared_by) VALUES ($1, $2, $3)`,[g.id,f.id,a.id]))()).rejects.toBeDefined();
     });
 
     test("only admins can manage the group; regular members and outsiders cannot",async()=>{
@@ -94,9 +94,9 @@ describe.skipIf(!enabled)("storage groups",()=>{
     test("non-members cannot upload, list, or download group files, even knowing every id",async()=>{
         const g=await group("Closed",[b]);
         const fileId=(await groupUpload(B,g.id,"x.txt")).body.file.id;
-        const before=await prisma.file.count();
+        const before=await countRows(`SELECT 1 FROM files`);
         expect((await groupUpload(D,g.id,"evil.txt")).status).toBe(404);
-        expect(await prisma.file.count()).toBe(before);
+        expect(await countRows(`SELECT 1 FROM files`)).toBe(before);
         expect((await D("GET",`/groups/${g.id}/files`)).status).toBe(404);
         expect((await D("GET",`/groups/${g.id}/files/${fileId}/download`)).status).toBe(404);
         expect((await D("GET",`/files/${fileId}/download`)).status).toBe(404);
@@ -128,7 +128,7 @@ describe.skipIf(!enabled)("storage groups",()=>{
         const g=await group("Revoke",[b,c]);
         const bobsFile=(await groupUpload(B,g.id,"bobs.txt","bob wrote this")).body.file.id;
         const alicesFile=(await groupUpload(A,g.id,"alices.txt","alice wrote this")).body.file.id;
-        await prisma.filePermission.create({data:{file_id:alicesFile,user_id:b.id,permission:"READ"}});
+        await db.query(`INSERT INTO file_permissions (file_id, user_id, permission) VALUES ($1, $2, $3)`,[alicesFile,b.id,"READ"]);
         expect((await B("GET",`/groups/${g.id}/files/${alicesFile}/download`)).status).toBe(200);
         expect((await B("DELETE",`/groups/${g.id}/members/${b.id}`)).status).toBe(204);
         expect((await B("GET",`/groups/${g.id}/files`)).status).toBe(404);
@@ -161,18 +161,18 @@ describe.skipIf(!enabled)("storage groups",()=>{
             A("PATCH",`/groups/${g.id}/members/${b.id}`,{role:"member"}),
             B("PATCH",`/groups/${g.id}/members/${a.id}`,{role:"member"})
         ]);
-        expect(await prisma.groupMember.count({where:{group_id:g.id,role:"admin"}})).toBe(1);
+        expect(await countRows(`SELECT 1 FROM group_members WHERE group_id = $1 AND role = $2`,[g.id,"admin"])).toBe(1);
     });
 
     test("sharing an existing file links it without copying; one file can be in many groups; duplicates are refused",async()=>{
         const g1=await group("S1",[b]), g2=await group("S2",[b]);
         const mine=(await A("POST","/files/upload",form("s.txt","once"))).body.file;
-        const filesBefore=await prisma.file.count();
+        const filesBefore=await countRows(`SELECT 1 FROM files`);
         expect((await A("POST",`/groups/${g1.id}/files`,{fileId:mine.id})).status).toBe(201);
         expect((await A("POST",`/groups/${g2.id}/files`,{fileId:mine.id})).status).toBe(201);
         expect((await A("POST",`/groups/${g1.id}/files`,{fileId:mine.id})).status).toBe(409);
-        expect(await prisma.file.count()).toBe(filesBefore);
-        expect(await prisma.groupFile.count({where:{file_id:mine.id}})).toBe(2);
+        expect(await countRows(`SELECT 1 FROM files`)).toBe(filesBefore);
+        expect(await countRows(`SELECT 1 FROM group_files WHERE file_id = $1`,[mine.id])).toBe(2);
         const bobs=(await B("POST","/files/upload",form("b.txt","b"))).body.file;
         expect((await A("POST",`/groups/${g1.id}/files`,{fileId:bobs.id})).status).toBe(404);
         expect((await A("POST",`/groups/${g1.id}/files`,{fileId:"nope"})).status).toBe(400);
@@ -187,7 +187,7 @@ describe.skipIf(!enabled)("storage groups",()=>{
         const fileId=(await groupUpload(B,g.id,"u.txt")).body.file.id;
         expect((await C("DELETE",`/groups/${g.id}/files/${fileId}`)).status).toBe(403);
         expect((await A("DELETE",`/groups/${g.id}/files/${fileId}`)).status).toBe(204);
-        expect(await prisma.file.count({where:{file_id:fileId}})).toBe(1);
+        expect(await countRows(`SELECT 1 FROM files WHERE file_id = $1`,[fileId])).toBe(1);
         const second=(await groupUpload(B,g.id,"u2.txt")).body.file.id;
         expect((await B("DELETE",`/groups/${g.id}/files/${second}`)).status).toBe(204);
         expect((await B("DELETE",`/groups/${g.id}/files/${second}`)).status).toBe(404);
@@ -197,8 +197,8 @@ describe.skipIf(!enabled)("storage groups",()=>{
         const g=await group("Gone",[b]);
         const fileId=(await groupUpload(B,g.id,"keep.txt","still here")).body.file.id;
         expect((await A("DELETE",`/groups/${g.id}`)).status).toBe(204);
-        expect(await prisma.groupMember.count({where:{group_id:g.id}})).toBe(0);
-        expect(await prisma.groupFile.count({where:{group_id:g.id}})).toBe(0);
+        expect(await countRows(`SELECT 1 FROM group_members WHERE group_id = $1`,[g.id])).toBe(0);
+        expect(await countRows(`SELECT 1 FROM group_files WHERE group_id = $1`,[g.id])).toBe(0);
         await expect(storage.open(fileId)).resolves.toBeDefined();
         expect((await B("GET",`/files/${fileId}/download`)).text).toBe("still here");
         expect((await A("GET",`/files/${fileId}/download`)).status).toBe(404);

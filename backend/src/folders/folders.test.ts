@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeAll } from "bun:test";
-import { enabled, prisma, storage, reset, makeUser, http, form } from "../test-utils/setup.ts";
+import { enabled, db, countRows, storage, reset, makeUser, http, form } from "../test-utils/setup.ts";
 
 describe.skipIf(!enabled)("folders",()=>{
     let a:Awaited<ReturnType<typeof makeUser>>, b:typeof a, A:ReturnType<typeof http>, B:ReturnType<typeof http>;
@@ -102,7 +102,7 @@ describe.skipIf(!enabled)("folders",()=>{
         const bFile=(await B("POST","/files/upload",form("bf.txt","x"))).body.file;
         expect((await B("PATCH",`/files/${bFile.id}/move`,{folderId:f.id})).status).toBe(404);
         expect((await B("GET",`/files/${file.id}/download`)).status).toBe(404);
-        expect((await prisma.file.count({where:{file_name:"b.txt"}}))).toBe(0);
+        expect((await countRows(`SELECT 1 FROM files WHERE file_name = $1`,["b.txt"]))).toBe(0);
         expect((await A("GET","/folders/not-a-uuid")).status).toBe(404);
         expect((await A("GET","/folders/123e4567-e89b-42d3-a456-426614174000")).status).toBe(404);
         expect((await A("POST","/files/upload",form("bad.txt","x",{folderId:"nope"}))).status).toBe(400);
@@ -115,8 +115,8 @@ describe.skipIf(!enabled)("folders",()=>{
         const keep=(await A("POST","/files/upload",form("keep.txt","3"))).body.file;
         const r=await A("DELETE",`/folders/${top.id}`);
         expect(r.status).toBe(204);
-        expect(await prisma.folder.count({where:{folder_id:{in:[top.id,sub.id]},deleted_at:{not:null}}})).toBe(2);
-        expect(await prisma.file.count({where:{file_id:{in:[f1.id,f2.id]},deleted_at:{not:null}}})).toBe(2);
+        expect(await countRows(`SELECT 1 FROM folders WHERE folder_id = ANY($1::uuid[]) AND deleted_at IS NOT NULL`,[[top.id,sub.id]])).toBe(2);
+        expect(await countRows(`SELECT 1 FROM files WHERE file_id = ANY($1::uuid[]) AND deleted_at IS NOT NULL`,[[f1.id,f2.id]])).toBe(2);
         expect((await A("GET",`/folders/${top.id}`)).status).toBe(404);
         const trash=(await A("GET","/files/trash")).body;
         expect(trash.folders.map((folder:any)=>folder.id)).toContain(top.id);
@@ -130,8 +130,8 @@ describe.skipIf(!enabled)("folders",()=>{
         const purged=await A("DELETE",`/folders/trash/${top.id}/permanent`);
         expect(purged.status).toBe(200);
         expect(purged.body).toEqual({deletedFolders:2,deletedFiles:2});
-        expect(await prisma.folder.count({where:{folder_id:{in:[top.id,sub.id]}}})).toBe(0);
-        expect(await prisma.file.count({where:{file_id:{in:[f1.id,f2.id]}}})).toBe(0);
+        expect(await countRows(`SELECT 1 FROM folders WHERE folder_id = ANY($1::uuid[])`,[[top.id,sub.id]])).toBe(0);
+        expect(await countRows(`SELECT 1 FROM files WHERE file_id = ANY($1::uuid[])`,[[f1.id,f2.id]])).toBe(0);
         await expect(storage.open(f1.id)).rejects.toMatchObject({code:"NOT_FOUND"});
         await expect(storage.open(f2.id)).rejects.toMatchObject({code:"NOT_FOUND"});
         await expect(storage.open(keep.id)).resolves.toBeDefined();
@@ -146,6 +146,6 @@ describe.skipIf(!enabled)("folders",()=>{
 
     test("the database refuses a folder that is its own parent",async()=>{
         const f=await mk(A,"selfref");
-        await expect((async()=>prisma.folder.update({where:{folder_id:f.id},data:{parent_folder_id:f.id}}))()).rejects.toBeDefined();
+        await expect((async()=>db.query(`UPDATE folders SET parent_folder_id = $1 WHERE folder_id = $1`,[f.id]))()).rejects.toBeDefined();
     });
 });

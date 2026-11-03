@@ -1,6 +1,7 @@
 import { describe, test, expect, beforeAll, afterAll, beforeEach, spyOn, setSystemTime } from "bun:test";
 import pg from "pg";
-import { enabled, prisma, reset, makeUser, http, form } from "../test-utils/setup.ts";
+import { AUTH_USER_SQL } from "../auth/users.repository.ts";
+import { enabled, db, reset, makeUser, http, form } from "../test-utils/setup.ts";
 import { FakeRedis } from "../test-utils/fake-redis.ts";
 
 const { setRedis } = await import("./redis.ts");
@@ -11,8 +12,8 @@ type U=Awaited<ReturnType<typeof makeUser>>;
 describe.skipIf(!enabled)("redis cache",()=>{
     let redis:FakeRedis, a:U, b:U, c:U, A:ReturnType<typeof http>, B:ReturnType<typeof http>, C:ReturnType<typeof http>;
     let sql:ReturnType<typeof spyOn>;
-    const dbQueries=()=>sql.mock.calls.map((c:any)=>String(c[0]?.text ?? c[0])).filter((q:string)=>!q.includes('"users"."is_active"'));
-    const count=(table:string)=>dbQueries().filter((q:string)=>q.includes(`"public"."${table}"`)).length;
+    const dbQueries=()=>sql.mock.calls.map((c:any)=>String(c[0]?.text ?? c[0])).filter((q:string)=>q!==AUTH_USER_SQL);
+    const count=(table:string)=>dbQueries().filter((q:string)=>new RegExp(`\\b(from|join|into|update)\\s+${table}\\b`,"i").test(q)).length;
 
     beforeAll(()=>{ sql=spyOn(pg.Client.prototype as any,"query"); });
     afterAll(()=>{ setRedis(null); setSystemTime(); });
@@ -27,7 +28,7 @@ describe.skipIf(!enabled)("redis cache",()=>{
     const upload=async(U=A,name="f.txt",fields:Record<string,string>={})=>(await U("POST","/files/upload",form(name,name,fields))).body.file.id as string;
     const folder=async(U=A,name="docs",parentId:string|null=null)=>(await U("POST","/folders",{name,parentId})).body.folder.id as string;
     const ids=(res:{body:any})=>res.body.files.map((f:any)=>f.id).sort();
-    const touchDb=()=>prisma.file.updateMany({data:{file_name:"changed-behind-the-cache"}});
+    const touchDb=()=>db.query(`UPDATE files SET file_name = $1`,["changed-behind-the-cache"]);
 
     describe("folder contents and file lists",()=>{
         test("second read is a cache hit and runs no database queries",async()=>{
@@ -294,7 +295,7 @@ describe.skipIf(!enabled)("redis cache",()=>{
 
         test("a deactivated account loses access even though its entries are warm",async()=>{
             await upload(A); expect((await A("GET","/files")).status).toBe(200);
-            await prisma.user.update({where:{user_id:a.id},data:{is_active:false}});
+            await db.query(`UPDATE users SET is_active = false, updated_at = $2 WHERE user_id = $1`,[a.id,new Date()]);
             expect((await A("GET","/files")).status).toBe(401);
             expect((await A("GET","/files/recent")).status).toBe(401);
         });

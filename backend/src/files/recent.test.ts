@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeAll } from "bun:test";
-import { enabled, prisma, reset, makeUser, http, form } from "../test-utils/setup.ts";
+import { enabled, db, countRows, reset, makeUser, http, form } from "../test-utils/setup.ts";
 
 const sleep=(ms:number)=>new Promise(r=>setTimeout(r,ms));
 
@@ -26,7 +26,7 @@ describe.skipIf(!enabled)("recently viewed",()=>{
         await sleep(15);
         const v2=(await A("POST",`/files/${id}/view`)).body.viewedAt;
         expect(new Date(v2).getTime()).toBeGreaterThan(new Date(v1).getTime());
-        expect(await prisma.fileViewHistory.count({where:{user_id:a.id,file_id:id}})).toBe(1);
+        expect(await countRows(`SELECT 1 FROM file_view_history WHERE user_id = $1 AND file_id = $2`,[a.id,id])).toBe(1);
         const items=(await recent()).items;
         expect(items).toHaveLength(1);
         expect(items[0]).toMatchObject({id,name:"first.txt",type:"text/plain",viewedAt:v2});
@@ -56,9 +56,9 @@ describe.skipIf(!enabled)("recently viewed",()=>{
 
     test("only an explicit view records: listing, downloading and fetching metadata do not",async()=>{
         const id=await upload("quiet.txt");
-        const before=await prisma.fileViewHistory.count();
+        const before=await countRows(`SELECT 1 FROM file_view_history`);
         await A("GET","/files"); await A("GET","/files/usage"); await A("GET",`/files/${id}/download`); await A("GET","/files/recent");
-        expect(await prisma.fileViewHistory.count()).toBe(before);
+        expect(await countRows(`SELECT 1 FROM file_view_history`)).toBe(before);
     });
 
     test("each user only sees their own history",async()=>{
@@ -70,11 +70,11 @@ describe.skipIf(!enabled)("recently viewed",()=>{
 
     test("viewing a file you cannot access is a 404 and records nothing",async()=>{
         const id=await upload("secret.txt");
-        const before=await prisma.fileViewHistory.count();
+        const before=await countRows(`SELECT 1 FROM file_view_history`);
         expect((await B("POST",`/files/${id}/view`)).status).toBe(404);
         expect((await A("POST","/files/not-a-uuid/view")).status).toBe(404);
         expect((await A("POST","/files/123e4567-e89b-42d3-a456-426614174000/view")).status).toBe(404);
-        expect(await prisma.fileViewHistory.count()).toBe(before);
+        expect(await countRows(`SELECT 1 FROM file_view_history`)).toBe(before);
     });
 
     test("a view through a group is recorded for the viewer, not the uploader, and stops showing once access ends",async()=>{
@@ -82,8 +82,8 @@ describe.skipIf(!enabled)("recently viewed",()=>{
         await A("POST",`/groups/${g.id}/members`,{identifier:b.username});
         const fileId=(await A("POST",`/groups/${g.id}/files/upload`,form("shared.txt","s"))).body.file.id;
         expect((await B("POST",`/groups/${g.id}/files/${fileId}/view`)).status).toBe(200);
-        expect(await prisma.fileViewHistory.count({where:{user_id:b.id,file_id:fileId}})).toBe(1);
-        expect(await prisma.fileViewHistory.count({where:{user_id:a.id,file_id:fileId}})).toBe(0);
+        expect(await countRows(`SELECT 1 FROM file_view_history WHERE user_id = $1 AND file_id = $2`,[b.id,fileId])).toBe(1);
+        expect(await countRows(`SELECT 1 FROM file_view_history WHERE user_id = $1 AND file_id = $2`,[a.id,fileId])).toBe(0);
         const items=(await recent(B)).items;
         expect(items.map((i:any)=>i.id)).toContain(fileId);
         expect((await B("POST",`/files/${fileId}/view`)).status).toBe(200);
@@ -99,7 +99,7 @@ describe.skipIf(!enabled)("recently viewed",()=>{
         await A("POST",`/files/${id}/view`);
         await A("DELETE",`/files/${id}`);
         expect((await recent()).items.map((i:any)=>i.id)).not.toContain(id);
-        expect(await prisma.fileViewHistory.count({where:{file_id:id}})).toBe(1);
+        expect(await countRows(`SELECT 1 FROM file_view_history WHERE file_id = $1`,[id])).toBe(1);
         expect((await A("GET","/files/trash")).body.files.map((f:any)=>f.id)).toContain(id);
         expect((await A("POST",`/files/trash/${id}/restore`)).status).toBe(204);
         expect((await recent()).items.map((i:any)=>i.id)).toContain(id);
@@ -107,7 +107,7 @@ describe.skipIf(!enabled)("recently viewed",()=>{
 
     test("the database enforces one row per user and file",async()=>{
         const id=await upload("uniq.txt");
-        await prisma.fileViewHistory.create({data:{user_id:a.id,file_id:id}});
-        await expect((async()=>prisma.fileViewHistory.create({data:{user_id:a.id,file_id:id}}))()).rejects.toBeDefined();
+        await db.query(`INSERT INTO file_view_history (user_id, file_id) VALUES ($1, $2)`,[a.id,id]);
+        await expect((async()=>db.query(`INSERT INTO file_view_history (user_id, file_id) VALUES ($1, $2)`,[a.id,id]))()).rejects.toBeDefined();
     });
 });

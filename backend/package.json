@@ -10,15 +10,12 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/multer": "^2.3.0",
     "@types/nodemailer": "^8.0.2",
-    "@types/pg": "^8.23.1",
-    "prisma": "7.10.0"
+    "@types/pg": "^8.23.1"
   },
   "peerDependencies": {
     "typescript": "^5"
   },
   "dependencies": {
-    "@prisma/adapter-pg": "^7.10.0",
-    "@prisma/client": "^7.10.0",
     "bcrypt": "^6.0.0",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
@@ -29,10 +26,7 @@
     "zod": "^4.6.5"
   },
   "scripts": {
-    "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev",
-    "db:deploy": "prisma migrate deploy",
-    "db:studio": "prisma studio",
+    "db:migrate": "bun src/db/migrate.ts",
     "dev": "bun --watch src/server/server.ts",
     "start": "bun src/server/server.ts",
     "demo": "bun scripts/demo.ts"

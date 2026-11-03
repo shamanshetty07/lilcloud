@@ -1,7 +1,8 @@
 import { describe, test, expect, beforeAll, beforeEach, afterAll, spyOn, setSystemTime } from "bun:test";
 import { RedisClient } from "bun";
 import pg from "pg";
-import { enabled, prisma, reset, makeUser, http, form } from "../test-utils/setup.ts";
+import { AUTH_USER_SQL } from "../auth/users.repository.ts";
+import { enabled, db, reset, makeUser, http, form } from "../test-utils/setup.ts";
 
 const url=process.env.TEST_REDIS_URL;
 const container=process.env.TEST_REDIS_CONTAINER;
@@ -115,7 +116,7 @@ describe.skipIf(!url)("real redis: cache layer",()=>{
 describe.skipIf(!url || !enabled)("real redis: http flows",()=>{
     let sql:ReturnType<typeof spyOn>, client:RedisClient, inspect:RedisClient;
     let a:any,b:any,A:ReturnType<typeof http>,B:ReturnType<typeof http>;
-    const dbQueries=()=>sql.mock.calls.map((c:any)=>String(c[0]?.text ?? c[0])).filter((q:string)=>!q.includes('"users"."is_active"'));
+    const dbQueries=()=>sql.mock.calls.map((c:any)=>String(c[0]?.text ?? c[0])).filter((q:string)=>q!==AUTH_USER_SQL);
     beforeAll(async()=>{ sql=spyOn(pg.Client.prototype as any,"query"); client=new RedisClient(url!,options); inspect=new RedisClient(url!); await client.connect(); });
     afterAll(()=>{ setRedis(null); client.close(); inspect.close(); });
     beforeEach(async()=>{

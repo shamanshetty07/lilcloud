@@ -1,23 +1,21 @@
 import { randomUUID } from "node:crypto";
-import { prisma } from "../lib/prisma.ts"
+import { pool, transaction, type Db } from "../db/client.ts";
 import { extname } from "node:path";
 import { storage, isValidKey } from "./storage.ts";
 import { PLANS, currentPlanFor } from "../plans/plans.ts";
 import { notFound } from "../lib/errors.ts";
 import { cached, cacheOn, invalidate, hash, scopes, TTL } from "../cache/cache.ts";
 
-type Db=typeof prisma|Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
-const lockOwner=(db:Db,userId:number)=>db.$executeRaw`SELECT pg_advisory_xact_lock(1, ${userId}::int)`;
+import * as repo from "./files.repository.ts";
+import { findOwnedFolder, lockOwner, listTrashedTopFolders } from "../folders/folders.repository.ts";
+import { findMembership, insertGroupFile } from "../groups/groups.repository.ts";
 
 export const cacheScopesFor=async(db:Db,fileIds:string[])=>{
     if(!cacheOn() || !fileIds.length) return [];
-    const where={file_id:{in:fileIds}};
-    const [owners,holders,links]=await Promise.all([
-        db.file.findMany({where,select:{owner_id:true},distinct:["owner_id"]}),
-        db.filePermission.findMany({where,select:{user_id:true},distinct:["user_id"]}),
-        db.groupFile.findMany({where,select:{group_id:true},distinct:["group_id"]})
-    ]);
-    const groupMembers=links.length?await db.groupMember.findMany({where:{group_id:{in:links.map(link=>link.group_id)}},select:{user_id:true},distinct:["user_id"]}):[];
+    const owners=await repo.distinctOwners(db,fileIds);
+    const holders=await repo.distinctPermissionHolders(db,fileIds);
+    const links=await repo.distinctGroupsSharing(db,fileIds);
+    const groupMembers=links.length?await repo.distinctMembersOfGroups(db,links.map(link=>link.group_id)):[];
     return [
         ...owners.flatMap(o=>[scopes.userFiles(o.owner_id),scopes.userRecent(o.owner_id)]),
         ...holders.map(h=>scopes.userFiles(h.user_id)),
@@ -31,9 +29,9 @@ export class QuotaExceededError extends Error {
 }
 
 const usageNow=async(userId:number)=>{
-    const sum=await prisma.file.aggregate({where:{owner_id:userId},_sum:{file_size:true}});
+    const usedBytes=await repo.totalFileSize(pool,userId);
     const plan=currentPlanFor(userId);
-    return {plan,usedBytes:Number(sum._sum.file_size ?? 0),limitBytes:PLANS[plan].limitBytes};
+    return {plan,usedBytes,limitBytes:PLANS[plan].limitBytes};
 }
 
 export const getUsageService=(userId:number)=>cached({
@@ -77,28 +75,27 @@ export const uploadFileService=async(data:uploadData)=>{
     if(usage.usedBytes+data.size>usage.limitBytes) throw new QuotaExceededError();
     const fileId=randomUUID();
     await storage.commit(data.tempPath,fileId);
-    let created:Awaited<ReturnType<typeof prisma.file.create>>;
+    let created:repo.FileRow;
     try{
-        const file=await prisma.$transaction(async tx=>{
+        const file=await transaction(async tx=>{
             if(data.folderId){
-                const folder=await tx.folder.findFirst({where:{folder_id:data.folderId,owner_id:data.ownerId,deleted_at:null},select:{folder_id:true}});
+                const folder=await findOwnedFolder(tx,data.folderId,data.ownerId,"live");
                 if(!folder) throw notFound("Folder not found");
             }
             if(data.groupId){
-                const member=await tx.groupMember.findUnique({where:{group_id_user_id:{group_id:data.groupId,user_id:data.ownerId}}});
+                const member=await findMembership(tx,data.groupId,data.ownerId);
                 if(!member) throw notFound("Group not found");
             }
-            return tx.file.create({
-                data:{
-                    file_id:fileId,
-                    owner_id:data.ownerId,
-                    file_name:data.fileName,
-                    file_size:data.size,
-                    file_type:deriveFileType(data.fileName,data.mimeType),
-                    folder_id:data.folderId ?? null,
-                    ...(data.groupId?{groups:{create:{group_id:data.groupId,shared_by:data.ownerId}}}:{})
-                }
+            const file=await repo.insertFile(tx,{
+                file_id:fileId,
+                owner_id:data.ownerId,
+                file_name:data.fileName,
+                file_size:data.size,
+                file_type:deriveFileType(data.fileName,data.mimeType),
+                folder_id:data.folderId ?? null
             });
+            if(data.groupId) await insertGroupFile(tx,data.groupId,fileId,data.ownerId);
+            return file;
         });
         created=file;
     }
@@ -110,46 +107,31 @@ export const uploadFileService=async(data:uploadData)=>{
     return {file:toDto(created)};
 }
 
-const accessFilter=(userId:number,permission:"READ"|"DELETE")=>({
-    OR:[
-        {owner_id:userId},
-        {permissions:{some:{user_id:userId,permission:{in:[permission,"OWNER"] as ("READ"|"DELETE"|"OWNER")[]}}}}
-    ]
-});
-
-export const readFilter=(userId:number)=>({
-    OR:[
-        ...accessFilter(userId,"READ").OR,
-        {groups:{some:{group:{members:{some:{user_id:userId}}}}}}
-    ]
-});
-
 export const listFilesService=(userId:number,folderId?:string|null)=>cached({
     scope:scopes.userFiles(userId),key:`list:${hash(folderId===undefined?"all":folderId)}`,ttl:TTL.folder,
     validate:(v):v is {files:ReturnType<typeof toDto>[]}=>Array.isArray((v as any)?.files),
     load:async()=>{
         if(folderId){
-            const folder=await prisma.folder.findFirst({where:{folder_id:folderId,owner_id:userId},select:{folder_id:true}});
+            const folder=await findOwnedFolder(pool,folderId,userId,"any");
             if(!folder) throw notFound("Folder not found");
         }
-        const files=await prisma.file.findMany({
-            where:{deleted_at:null,...(folderId===undefined?accessFilter(userId,"READ"):{owner_id:userId,folder_id:folderId})},
-            orderBy:{uploaded_at:"desc"}
-        });
+        const files=folderId===undefined?await repo.listAccessibleFiles(pool,userId):await repo.listLiveFilesIn(pool,userId,folderId);
         return {files:files.map(toDto)};
     }
 });
 
 export const moveFileService=async(userId:number,fileId:string,folderId:string|null)=>{
     if(!isValidKey(fileId)) throw notFound("File not found");
-    const {dto,touched}=await prisma.$transaction(async tx=>{
-        const file=await tx.file.findFirst({where:{file_id:fileId,owner_id:userId,deleted_at:null}});
+    const {dto,touched}=await transaction(async tx=>{
+        const file=await repo.findOwnedFile(tx,fileId,userId,false);
         if(!file) throw notFound("File not found");
         if(folderId){
-            const folder=await tx.folder.findFirst({where:{folder_id:folderId,owner_id:userId,deleted_at:null},select:{folder_id:true}});
+            const folder=await findOwnedFolder(tx,folderId,userId,"live");
             if(!folder) throw notFound("Folder not found");
         }
-        const dto=toDto(await tx.file.update({where:{file_id:fileId},data:{folder_id:folderId}}));
+        const updated=await repo.updateFileFolder(tx,fileId,folderId);
+        if(!updated) throw notFound("File not found");
+        const dto=toDto(updated);
         return {dto,touched:await cacheScopesFor(tx,[fileId])};
     });
     await invalidate(...touched);
@@ -158,13 +140,13 @@ export const moveFileService=async(userId:number,fileId:string,folderId:string|n
 
 export const findAccessibleFile=async(userId:number,fileId:string,permission:"READ"|"DELETE")=>{
     if(!isValidKey(fileId)) return null;
-    return prisma.file.findFirst({where:{file_id:fileId,deleted_at:null,...(permission==="READ"?readFilter(userId):accessFilter(userId,permission))}});
+    return repo.findAccessibleFile(pool,userId,fileId,permission);
 }
 
 export const listTrashService=async(userId:number)=>{
     const [files,folders]=await Promise.all([
-        prisma.file.findMany({where:{owner_id:userId,deleted_at:{not:null},OR:[{folder_id:null},{folder:{is:{deleted_at:null}}}]},orderBy:{deleted_at:"desc"}}),
-        prisma.folder.findMany({where:{owner_id:userId,deleted_at:{not:null},OR:[{parent_folder_id:null},{parent:{is:{deleted_at:null}}}]},orderBy:{deleted_at:"desc"}})
+        repo.listTrashedTopFiles(pool,userId),
+        listTrashedTopFolders(pool,userId)
     ]);
     return {files:files.map(file=>({...toDto(file),deletedAt:file.deleted_at})),folders:folders.map(folder=>({
         id:folder.folder_id,name:folder.folder_name,parentId:folder.parent_folder_id,deletedAt:folder.deleted_at
@@ -173,16 +155,16 @@ export const listTrashService=async(userId:number)=>{
 
 export const restoreFileService=async(userId:number,fileId:string)=>{
     if(!isValidKey(fileId)) throw notFound("File not found");
-    const touched=await prisma.$transaction(async tx=>{
+    const touched=await transaction(async tx=>{
         await lockOwner(tx,userId);
-        const file=await tx.file.findFirst({where:{file_id:fileId,owner_id:userId,deleted_at:{not:null}}});
+        const file=await repo.findOwnedFile(tx,fileId,userId,true);
         if(!file) throw notFound("File not found");
         if(file.folder_id){
-            const folder=await tx.folder.findFirst({where:{folder_id:file.folder_id,owner_id:userId,deleted_at:null},select:{folder_id:true}});
+            const folder=await findOwnedFolder(tx,file.folder_id,userId,"live");
             if(!folder) throw notFound("File not found");
         }
         const scopesToInvalidate=await cacheScopesFor(tx,[fileId]);
-        await tx.file.update({where:{file_id:fileId},data:{deleted_at:null}});
+        if(!await repo.setFileDeletedAt(tx,fileId,null)) throw notFound("File not found");
         return scopesToInvalidate;
     });
     await invalidate(...touched,scopes.userFiles(userId));
@@ -190,12 +172,12 @@ export const restoreFileService=async(userId:number,fileId:string)=>{
 
 export const trashFileService=async(userId:number,fileId:string)=>{
     if(!isValidKey(fileId)) throw notFound("File not found");
-    const touched=await prisma.$transaction(async tx=>{
+    const touched=await transaction(async tx=>{
         await lockOwner(tx,userId);
-        const file=await tx.file.findFirst({where:{file_id:fileId,owner_id:userId,deleted_at:null},select:{file_id:true}});
+        const file=await repo.findOwnedFile(tx,fileId,userId,false);
         if(!file) throw notFound("File not found");
         const scopesToInvalidate=await cacheScopesFor(tx,[fileId]);
-        await tx.file.update({where:{file_id:fileId},data:{deleted_at:new Date()}});
+        if(!await repo.setFileDeletedAt(tx,fileId,new Date())) throw notFound("File not found");
         return scopesToInvalidate;
     });
     await invalidate(...touched,scopes.userFiles(userId));
@@ -203,14 +185,14 @@ export const trashFileService=async(userId:number,fileId:string)=>{
 
 export const permanentlyDeleteTrashedFileService=async(userId:number,fileId:string)=>{
     if(!isValidKey(fileId)) throw notFound("File not found");
-    const file=await prisma.file.findFirst({where:{file_id:fileId,owner_id:userId,deleted_at:{not:null}},select:{file_id:true}});
+    const file=await repo.findOwnedFile(pool,fileId,userId,true);
     if(!file) throw notFound("File not found");
     await deleteFileService(fileId);
 }
 
 export const deleteFileService=async(fileId:string)=>{
-    const touched=await cacheScopesFor(prisma,[fileId]);
-    await prisma.file.delete({where:{file_id:fileId}});
+    const touched=await cacheScopesFor(pool,[fileId]);
+    if(!await repo.deleteFileById(pool,fileId)) throw notFound("File not found");
     await invalidate(...touched);
     await storage.remove(fileId).catch(err=>console.error("orphaned file left on disk:",fileId,err));
 }

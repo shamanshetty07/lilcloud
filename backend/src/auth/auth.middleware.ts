@@ -1,7 +1,8 @@
 import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { env } from "../lib/env.ts";
-import { prisma } from "../lib/prisma.ts";
+import { pool } from "../db/client.ts";
+import { findAuthUser } from "./users.repository.ts";
 
 export const requireAuth=async (req:Request,res:Response,next:NextFunction)=>{
     const header=req.headers.authorization;
@@ -16,7 +17,7 @@ export const requireAuth=async (req:Request,res:Response,next:NextFunction)=>{
         return res.status(401).json({message:"Invalid or expired token"});
     }
     try{
-        const user=await prisma.user.findUnique({where:{user_id:payload.id},select:{is_active:true,username:true,email:true}});
+        const user=await findAuthUser(pool,payload.id);
         if(!user || !user.is_active){
             return res.status(401).json({message:"Invalid or expired token"});
         }

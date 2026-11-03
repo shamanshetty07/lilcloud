@@ -1,8 +1,25 @@
 # Database
 
-Postgres via Prisma (`prisma/schema.prisma`, migrations in `prisma/migrations`). File *content* is not in the
-database: it lives in the storage backend under the file's uuid (`src/files/storage.ts`). Activity and auth logs
-live in MongoDB and are not part of this schema.
+Postgres accessed with raw, parameterized SQL through the `pg` driver. File *content* is not in the database: it
+lives in the storage backend under the file's uuid (`src/files/storage.ts`). Activity and auth logs live in MongoDB
+and are not part of this schema.
+
+## Layout
+
+- `db/migrations/*.sql`: ordered DDL migrations, applied by `bun run db:migrate` (`src/db/migrate.ts`). Each runs in
+  a transaction and is recorded in `schema_migrations`. On a database previously managed by Prisma, finished rows of
+  `_prisma_migrations` are imported first, so nothing is re-applied. `_prisma_migrations` is left in place.
+- `db/schema.sql`: the full current schema in one file, for reference or for loading into an empty database. Keep it
+  in sync when adding a migration.
+- `src/db/client.ts`: the single connection pool, `transaction()` helper and type parsing. `TIMESTAMP(3)` columns
+  hold UTC wall-clock time and are parsed/sent as UTC; `BIGINT` is returned as `bigint`.
+- `src/db/query.ts`: side-effect-free query helpers (`rows`, `one`, `execute`) and the `Db`/`Tx` types.
+- `src/*/*.repository.ts`: all SQL, one module per area. Services call repositories and own transactions and
+  business rules.
+
+To add a schema change, create `db/migrations/<timestamp>_<name>.sql`, run `bun run db:migrate`, and update
+`db/schema.sql`. UUID primary keys have no database default; the application generates them. `updated_at` has no
+default either and is set by the repository on every insert and update.
 
 ## ER diagram
 
@@ -54,8 +71,8 @@ erDiagram
 - `files.folder_id` is nullable: existing files and root-level uploads have `NULL`.
 - Sibling names are unique **per owner, case-insensitively** (policy: a second "Photos" in the same place is a 409).
   Enforced by two partial unique indexes written by hand in the migration (`folders_owner_parent_name_key`,
-  `folders_owner_root_name_key`), because Prisma cannot express `lower(name)` or the nullable-parent case. Prisma
-  does not manage these, so keep them when editing that migration. File names are not unique, as before.
+  `folders_owner_root_name_key`) on `lower(folder_name)`, split by whether the parent is NULL. File names are not
+  unique.
 - `folders_not_own_parent` is a CHECK against a folder being its own parent. Longer cycles are rejected by the
   service (moves run under a per-owner advisory lock so two concurrent moves cannot create one).
 - Foreign keys to parent/owner/files are `RESTRICT`; deleting a folder is done by the service, which removes the

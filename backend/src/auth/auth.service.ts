@@ -1,6 +1,7 @@
 import { string } from "zod"
 import { env } from "../lib/env.ts";
-import { prisma } from "../lib/prisma.ts"
+import { pool } from "../db/client.ts";
+import { findUserByUsernameOrEmail, findUserByEmail, findUserById, createUser } from "./users.repository.ts";
 import { DomainError, conflict } from "../lib/errors.ts";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
@@ -13,14 +14,7 @@ type signupData={
 }
 
 export const  signupService=async(data:signupData)=>{
-    const userExists=await prisma.user.findFirst({
-        where:{
-            OR:[
-            {username:data.username},
-            {email:data.email}
-        ]
-        }
-    });
+    const userExists=await findUserByUsernameOrEmail(pool,data.username,data.email);
     if(userExists){
         if(data.username===userExists.username){
             throw conflict("That username is already taken");
@@ -31,13 +25,7 @@ export const  signupService=async(data:signupData)=>{
     }
     const hashedpassword=await bcrypt.hash(data.password,10);
 
-    const user=await prisma.user.create({
-        data:{
-            username:data.username,
-            email:data.email,
-            password_hash:hashedpassword
-        }
-    })
+    const user=await createUser(pool,{username:data.username,email:data.email,password_hash:hashedpassword})
     const token= jwt.sign({
         id:user.user_id,
         email:user.email
@@ -60,9 +48,7 @@ type signinData={
 }
 
 export const signinService=async(data:signinData)=>{
-    const user=await prisma.user.findUnique({
-        where:{email:data.email}
-    });
+    const user=await findUserByEmail(pool,data.email);
     if(!user || !user.is_active){
         throw new DomainError(401,"Invalid email or password");
     }
@@ -87,9 +73,7 @@ export const signinService=async(data:signinData)=>{
 }
 
 export const meService=async(userId:number)=>{
-    const user=await prisma.user.findUnique({
-        where:{user_id:userId}
-    });
+    const user=await findUserById(pool,userId);
     if(!user || !user.is_active){
         throw new Error("user not found");
     }

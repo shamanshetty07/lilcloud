@@ -1,13 +1,15 @@
-import { prisma } from "../lib/prisma.ts";
+import { randomUUID } from "node:crypto";
+import { pool, transaction, type Db } from "../db/client.ts";
 import { storage } from "../files/storage.ts";
 import { toDto } from "../files/files.service.ts";
 import { notFound, conflict, badRequest, isUniqueViolation, isUuid } from "../lib/errors.ts";
 import { cached, invalidate, scopes, TTL } from "../cache/cache.ts";
 import { cacheScopesFor } from "../files/files.service.ts";
+import * as repo from "./folders.repository.ts";
+import { listLiveFilesIn, listFileIdsInFolders, setFilesDeletedAtInFolders, deleteFilesByIds } from "../files/files.repository.ts";
 
 export const MAX_DEPTH=50;
 
-type Tx=Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 type Row={folder_id:string,folder_name:string,parent_folder_id:string|null,created_at:Date,updated_at:Date};
 
 const toFolderDto=(f:Row)=>({
@@ -20,34 +22,26 @@ const toFolderDto=(f:Row)=>({
 
 const DUPLICATE="A folder with that name already exists here";
 
-const lockOwner=(tx:Tx,ownerId:number)=>tx.$executeRaw`SELECT pg_advisory_xact_lock(1, ${ownerId}::int)`;
+const lockOwner=repo.lockOwner;
 
-const ownedFolder=async(tx:Tx|typeof prisma,ownerId:number,folderId:string)=>{
+const ownedFolder=async(tx:Db,ownerId:number,folderId:string)=>{
     if(!isUuid(folderId)) throw notFound("Folder not found");
-    const folder=await tx.folder.findFirst({where:{folder_id:folderId,owner_id:ownerId,deleted_at:null}});
+    const folder=await repo.findOwnedFolder(tx,folderId,ownerId,"live");
     if(!folder) throw notFound("Folder not found");
     return folder;
 }
 
-const chainOf=(tx:Tx|typeof prisma,folderId:string)=>tx.$queryRaw<{folder_id:string,folder_name:string}[]>`
-    WITH RECURSIVE chain AS (
-        SELECT folder_id, folder_name, parent_folder_id, 1 AS depth FROM folders WHERE folder_id=${folderId}::uuid
-        UNION ALL
-        SELECT f.folder_id, f.folder_name, f.parent_folder_id, c.depth+1
-        FROM folders f JOIN chain c ON f.folder_id=c.parent_folder_id
-        WHERE c.depth<${MAX_DEPTH*4}
-    )
-    SELECT folder_id, folder_name FROM chain ORDER BY depth`;
+const chainOf=(tx:Db,folderId:string)=>repo.folderChain(tx,folderId,MAX_DEPTH*4);
 
 export const createFolderService=async(userId:number,name:string,parentId:string|null)=>{
     try{
-        const folder=await prisma.$transaction(async tx=>{
+        const folder=await transaction(async tx=>{
             await lockOwner(tx,userId);
             if(parentId){
                 await ownedFolder(tx,userId,parentId);
                 if((await chainOf(tx,parentId)).length>=MAX_DEPTH) throw badRequest("Folders are nested too deeply");
             }
-            return toFolderDto(await tx.folder.create({data:{owner_id:userId,folder_name:name,parent_folder_id:parentId}}));
+            return toFolderDto(await repo.insertFolder(tx,{folder_id:randomUUID(),owner_id:userId,folder_name:name,parent_folder_id:parentId}));
         });
         await invalidate(scopes.userFiles(userId));
         return folder;
@@ -65,11 +59,11 @@ export const getFolderContentsService=(userId:number,id:string|null)=>cached({
 });
 
 const loadFolderContents=async(userId:number,id:string|null)=>{
-    const folder=id?await ownedFolder(prisma,userId,id):null;
+    const folder=id?await ownedFolder(pool,userId,id):null;
     const [folders,files,chain]=await Promise.all([
-        prisma.folder.findMany({where:{owner_id:userId,parent_folder_id:id,deleted_at:null},orderBy:{folder_name:"asc"}}),
-        prisma.file.findMany({where:{owner_id:userId,folder_id:id,deleted_at:null},orderBy:{uploaded_at:"desc"}}),
-        id?chainOf(prisma,id):Promise.resolve([])
+        repo.listLiveChildFolders(pool,userId,id),
+        listLiveFilesIn(pool,userId,id),
+        id?chainOf(pool,id):Promise.resolve([])
     ]);
     return {
         folder:folder?toFolderDto(folder):null,
@@ -80,9 +74,11 @@ const loadFolderContents=async(userId:number,id:string|null)=>{
 }
 
 export const renameFolderService=async(userId:number,id:string,name:string)=>{
-    await ownedFolder(prisma,userId,id);
+    await ownedFolder(pool,userId,id);
     try{
-        const folder=toFolderDto(await prisma.folder.update({where:{folder_id:id},data:{folder_name:name}}));
+        const renamed=await repo.renameFolder(pool,id,name);
+        if(!renamed) throw notFound("Folder not found");
+        const folder=toFolderDto(renamed);
         await invalidate(scopes.userFiles(userId));
         return folder;
     }
@@ -94,7 +90,7 @@ export const renameFolderService=async(userId:number,id:string,name:string)=>{
 
 export const moveFolderService=async(userId:number,id:string,newParentId:string|null)=>{
     try{
-        const folder=await prisma.$transaction(async tx=>{
+        const folder=await transaction(async tx=>{
             await lockOwner(tx,userId);
             const folder=await ownedFolder(tx,userId,id);
             if(newParentId){
@@ -104,7 +100,9 @@ export const moveFolderService=async(userId:number,id:string,newParentId:string|
                 if(chain.length>=MAX_DEPTH) throw badRequest("Folders are nested too deeply");
             }
             if(folder.parent_folder_id===newParentId) return toFolderDto(folder);
-            return toFolderDto(await tx.folder.update({where:{folder_id:id},data:{parent_folder_id:newParentId}}));
+            const moved=await repo.setFolderParent(tx,id,newParentId);
+            if(!moved) throw notFound("Folder not found");
+            return toFolderDto(moved);
         });
         await invalidate(scopes.userFiles(userId));
         return folder;
@@ -115,26 +113,19 @@ export const moveFolderService=async(userId:number,id:string,newParentId:string|
     }
 }
 
-const folderTree=async(db:Tx|typeof prisma,userId:number,id:string)=>db.$queryRaw<{folder_id:string,depth:number}[]>`
-    WITH RECURSIVE tree AS (
-        SELECT folder_id, 0 AS depth FROM folders WHERE folder_id=${id}::uuid AND owner_id=${userId}
-        UNION ALL
-        SELECT f.folder_id, t.depth+1 FROM folders f JOIN tree t ON f.parent_folder_id=t.folder_id
-        WHERE t.depth<${MAX_DEPTH*4}
-    )
-    SELECT folder_id, depth FROM tree`;
+const folderTree=(db:Db,userId:number,id:string)=>repo.folderTree(db,userId,id,MAX_DEPTH*4);
 
 export const trashFolderService=async(userId:number,id:string)=>{
-    const touched=await prisma.$transaction(async tx=>{
+    const touched=await transaction(async tx=>{
         await lockOwner(tx,userId);
         await ownedFolder(tx,userId,id);
         const tree=await folderTree(tx,userId,id);
         const folderIds=tree.map(folder=>folder.folder_id);
-        const files=await tx.file.findMany({where:{folder_id:{in:folderIds},deleted_at:null},select:{file_id:true}});
+        const files=await listFileIdsInFolders(tx,folderIds,{is:"live"});
         const scopesToInvalidate=await cacheScopesFor(tx,files.map(file=>file.file_id));
         const deletedAt=new Date();
-        await tx.folder.updateMany({where:{folder_id:{in:folderIds},deleted_at:null},data:{deleted_at:deletedAt}});
-        await tx.file.updateMany({where:{folder_id:{in:folderIds},deleted_at:null},data:{deleted_at:deletedAt}});
+        await repo.setFoldersDeletedAt(tx,folderIds,null,deletedAt);
+        await setFilesDeletedAtInFolders(tx,folderIds,null,deletedAt);
         return scopesToInvalidate;
     });
     await invalidate(scopes.userFiles(userId),...touched);
@@ -142,20 +133,21 @@ export const trashFolderService=async(userId:number,id:string)=>{
 
 export const restoreFolderService=async(userId:number,id:string)=>{
     try{
-    const touched=await prisma.$transaction(async tx=>{
+    const touched=await transaction(async tx=>{
         await lockOwner(tx,userId);
-        const folder=await tx.folder.findFirst({where:{folder_id:id,owner_id:userId,deleted_at:{not:null}}});
-        if(!folder) throw notFound("Folder not found");
+        const folder=await repo.findOwnedFolder(tx,id,userId,"trashed");
+        if(!folder || !folder.deleted_at) throw notFound("Folder not found");
+        const deletedAt=folder.deleted_at;
         if(folder.parent_folder_id){
-            const parent=await tx.folder.findFirst({where:{folder_id:folder.parent_folder_id,owner_id:userId,deleted_at:null},select:{folder_id:true}});
+            const parent=await repo.findOwnedFolder(tx,folder.parent_folder_id,userId,"live");
             if(!parent) throw badRequest("Restore the parent folder first");
         }
         const tree=await folderTree(tx,userId,id);
         const folderIds=tree.map(entry=>entry.folder_id);
-        const files=await tx.file.findMany({where:{folder_id:{in:folderIds},deleted_at:folder.deleted_at},select:{file_id:true}});
+        const files=await listFileIdsInFolders(tx,folderIds,{is:"at",at:deletedAt});
         const scopesToInvalidate=await cacheScopesFor(tx,files.map(file=>file.file_id));
-        await tx.folder.updateMany({where:{folder_id:{in:folderIds},deleted_at:folder.deleted_at},data:{deleted_at:null}});
-        await tx.file.updateMany({where:{folder_id:{in:folderIds},deleted_at:folder.deleted_at},data:{deleted_at:null}});
+        await repo.setFoldersDeletedAt(tx,folderIds,deletedAt,null);
+        await setFilesDeletedAtInFolders(tx,folderIds,deletedAt,null);
         return scopesToInvalidate;
     });
     await invalidate(scopes.userFiles(userId),...touched);
@@ -166,18 +158,18 @@ export const restoreFolderService=async(userId:number,id:string)=>{
 }
 
 export const deleteFolderService=async(userId:number,id:string)=>{
-    const fileIds=await prisma.$transaction(async tx=>{
+    const fileIds=await transaction(async tx=>{
         await lockOwner(tx,userId);
-        const folder=await tx.folder.findFirst({where:{folder_id:id,owner_id:userId,deleted_at:{not:null}}});
+        const folder=await repo.findOwnedFolder(tx,id,userId,"trashed");
         if(!folder) throw notFound("Folder not found");
         const tree=await folderTree(tx,userId,id);
         const folderIds=tree.map(t=>t.folder_id);
-        const files=await tx.file.findMany({where:{folder_id:{in:folderIds}},select:{file_id:true}});
+        const files=await listFileIdsInFolders(tx,folderIds,{is:"any"});
         const touched=await cacheScopesFor(tx,files.map(f=>f.file_id));
-        await tx.file.deleteMany({where:{file_id:{in:files.map(f=>f.file_id)}}});
+        await deleteFilesByIds(tx,files.map(f=>f.file_id));
         const maxDepth=Math.max(...tree.map(t=>t.depth));
         for(let d=maxDepth;d>=0;d--){
-            await tx.folder.deleteMany({where:{folder_id:{in:tree.filter(t=>t.depth===d).map(t=>t.folder_id)}}});
+            await repo.deleteFoldersByIds(tx,tree.filter(t=>t.depth===d).map(t=>t.folder_id));
         }
         return {files:files.map(f=>f.file_id),folders:folderIds.length,touched};
     });
