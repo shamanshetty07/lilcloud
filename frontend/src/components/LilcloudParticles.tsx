@@ -20,8 +20,11 @@ const drawWord = async (aspect: number) => {
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
   ctx.font = `700 100px ${FAMILY}`;
-  const fit = Math.min((width * 0.82) / ctx.measureText(WORD).width, (height * 0.4) / 100);
-  ctx.font = `700 ${Math.round(100 * fit)}px ${FAMILY}`;
+  ctx.letterSpacing = "7px";
+  const base = ctx.measureText(WORD);
+  const fit = Math.min((width * 0.94) / base.width, (height * 0.6) / (base.actualBoundingBoxAscent + base.actualBoundingBoxDescent));
+  ctx.font = `700 ${100 * fit}px ${FAMILY}`;
+  ctx.letterSpacing = `${7 * fit}px`;
   const m = ctx.measureText(WORD);
   ctx.fillText(WORD, width / 2, height / 2 + (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2);
   return canvas.toDataURL("image/png");
@@ -58,7 +61,7 @@ export function LilcloudParticles({ className }: { className?: string }) {
     <div ref={ref} className={className} aria-hidden="true">
       {src && (
         <Suspense fallback={null}>
-          <InteractiveParticles src={src} allowUpload={false} background="transparent" color="#ededed" maxDimension={360} />
+          <InteractiveParticles src={src} allowUpload={false} background="transparent" color="#cfcfcf" maxDimension={300} size={0.55} randomness={2.2} depth={3} />
         </Suspense>
       )}
     </div>

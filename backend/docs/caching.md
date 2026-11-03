@@ -55,7 +55,7 @@ metadata is cached as part of the listings above.
   cache, so a revoked member gets a 404 immediately even while entries are warm. The role in group responses is added
   per viewer after the cached part.
 * **Invalidation happens after commit**, only when the mutation succeeded, so failed mutations leave the cache alone.
-* **Failure handling.** Every Redis call has a 250 ms timeout and fails fast (no offline queue); after a failure Redis is
+* **Failure handling.** Every Redis call has a timeout (250 ms by default, `REDIS_OP_TIMEOUT_MS` to change it) and fails fast (no offline queue); after a failure Redis is
   skipped for 5 s (circuit breaker) while the client reconnects on its own. Reads fall back to the database, writes
   never fail because of the cache, and authorization checks run against the database whether Redis is up or not.
   Errors from the database are never cached. Malformed or wrongly shaped entries are deleted and reloaded.

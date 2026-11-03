@@ -10,7 +10,7 @@ export const TTL={
 } as const;
 const MAX_TTL=Math.max(...Object.values(TTL));
 const VERSION_TTL=24*3600;
-const OP_TIMEOUT_MS=250;
+const OP_TIMEOUT_MS=env.REDIS_OP_TIMEOUT_MS;
 const BREAKER_MS=5000;
 
 let downUntil=0;

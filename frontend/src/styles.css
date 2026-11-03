@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, monospace;
@@ -31,6 +33,23 @@ body { margin: 0; -webkit-font-smoothing: antialiased; }
 .hatch { background-image:repeating-linear-gradient(135deg,transparent 0 6px,rgba(255,255,255,.035) 6px 7px); }
 .corner { position:absolute; width:12px; height:12px; border-color:var(--color-line-strong); }
 .btn-social { text-transform:none; letter-spacing:0; font-family:var(--font-sans); font-size:.875rem; font-weight:500; padding:.65rem 1.25rem; }
+.auth-big form { max-width:34rem; padding:2rem 2.25rem; }
+.auth-big form > :not(:last-child) { margin-block-end:1.1rem; }
+.auth-big form h1 { font-size:2.25rem; }
+.auth-big form p { font-size:1rem; }
+.auth-big .label { font-size:.76rem; }
+.auth-big .input { padding:.85rem 1.1rem; font-size:1.05rem; }
+.auth-big .btn { padding:.9rem 1.5rem; font-size:.85rem; }
+.auth-big .btn-social { padding:.85rem 1.5rem; font-size:1.05rem; }
+@media (max-height: 860px) {
+  .auth-big form { padding:1.5rem 2rem; }
+  .auth-big form > :not(:last-child) { margin-block-end:.8rem; }
+  .auth-big form h1 { font-size:1.9rem; }
+  .auth-big form p { font-size:.92rem; }
+  .auth-big .input { padding:.65rem 1rem; font-size:.95rem; }
+  .auth-big .btn { padding:.75rem 1.25rem; }
+  .auth-big .btn-social { padding:.7rem 1.25rem; font-size:.95rem; }
+}
 
 @keyframes fade-up { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }

@@ -31,6 +31,15 @@ export const connectRedis=async()=>{
 export const setRedis=(c:CacheClient|null)=>{ client=c; initialised=true; }
 
 export const closeRedis=()=>{
-    try{ if(client) (client as any).onclose=undefined; client?.close?.(); }catch{}
-    client=null; initialised=false;
+    const current=client as (CacheClient&{onclose?:unknown})|null;
+    client=null;
+    initialised=false;
+    if(!current) return;
+    try{
+        current.onclose=()=>{};
+        if(typeof current.close==="function") current.close();
+    }
+    catch(err){
+        console.error("redis close failed:",err);
+    }
 }

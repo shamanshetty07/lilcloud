@@ -17,6 +17,7 @@ export const env = {
     CORS_ORIGINS: (process.env.CORS_ORIGINS ?? "").split(",").map(o=>o.trim()).filter(Boolean),
     REDIS_URL: process.env.REDIS_URL || undefined,
     REDIS_KEY_PREFIX: process.env.REDIS_KEY_PREFIX || "lilcloud",
+    REDIS_OP_TIMEOUT_MS: Number(process.env.REDIS_OP_TIMEOUT_MS) || 250,
     PORT: process.env.PORT,
     DATABASE_URL: process.env.DATABASE_URL,
    JWT_SECRET:process.env.JWT_SECRET,

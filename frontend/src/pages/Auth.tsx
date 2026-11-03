@@ -48,8 +48,8 @@ export default function Auth({ mode }: { mode: "signin" | "signup" }) {
           <p className="label pointer-events-none absolute bottom-8 left-8">simple cloud storage for everything</p>
         </aside>
       )}
-      <div className="hatch flex min-h-screen flex-col items-center justify-center px-4">
-      <Link href="/" className="mb-8"><Logo size={40} /></Link>
+      <div className={`hatch flex min-h-screen flex-col items-center justify-center px-4 py-6${showArt ? " auth-big" : ""}`}>
+      <Link href="/" className={showArt ? "mb-6" : "mb-8"}><Logo size={showArt ? 48 : 40} /></Link>
       <form onSubmit={submit} className="w-full max-w-sm space-y-4 rounded-xl border border-line bg-bg p-7">
         <div>
           <h1 className="text-2xl font-bold tracking-[-0.04em]">{isUp ? "Create your account" : "Welcome back"}</h1>

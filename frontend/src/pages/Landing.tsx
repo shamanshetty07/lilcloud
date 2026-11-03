@@ -117,12 +117,7 @@ export default function Landing() {
           </div>
         </section>
         <section id="pricing" className="border-t border-line">
-          <div className="mx-auto max-w-6xl px-4 py-14 sm:py-16">
-            <Reveal><p className="label mb-3">pricing</p></Reveal>
-            <Reveal delay={80}><h2 className="max-w-3xl text-balance text-4xl font-bold tracking-[-0.04em] sm:text-5xl">Start free. Grow when you need to.</h2></Reveal>
-            <Reveal delay={140}><p className="mt-4 max-w-xl text-lg text-muted">1 GB on the house. Larger plans are launching soon, so join the waitlist to hear first.</p></Reveal>
-            <div className="mt-10"><PlanCards /></div>
-          </div>
+          <PlanCards />
         </section>
       </main>
 
