@@ -3,6 +3,8 @@ import { useAuth } from "../lib/auth.tsx";
 import { navigate, Link } from "../lib/router.tsx";
 import { Logo } from "../components/Logo.tsx";
 import { SocialButtons } from "../components/SocialButtons.tsx";
+import { LilcloudParticles } from "../components/LilcloudParticles.tsx";
+import { useMedia } from "../lib/media.ts";
 
 const OAUTH_ERRORS: Record<string, string> = {
   not_configured: "That sign-in option isn't available yet. Please use email for now.",
@@ -25,6 +27,7 @@ export default function Auth({ mode }: { mode: "signin" | "signup" }) {
   });
   const [busy, setBusy] = useState(false);
   const isUp = mode === "signup";
+  const showArt = useMedia("(min-width: 1024px) and (prefers-reduced-motion: no-preference)");
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -38,7 +41,14 @@ export default function Auth({ mode }: { mode: "signin" | "signup" }) {
   };
 
   return (
-    <div className="hatch flex min-h-screen flex-col items-center justify-center px-4">
+    <div className={showArt ? "grid min-h-screen grid-cols-2" : undefined}>
+      {showArt && (
+        <aside className="relative border-r border-line">
+          <LilcloudParticles className="absolute inset-0" />
+          <p className="label pointer-events-none absolute bottom-8 left-8">simple cloud storage for everything</p>
+        </aside>
+      )}
+      <div className="hatch flex min-h-screen flex-col items-center justify-center px-4">
       <Link href="/" className="mb-8"><Logo size={40} /></Link>
       <form onSubmit={submit} className="w-full max-w-sm space-y-4 rounded-xl border border-line bg-bg p-7">
         <div>
@@ -64,6 +74,7 @@ export default function Auth({ mode }: { mode: "signin" | "signup" }) {
           <Link href={isUp ? "/signin" : "/signup"} className="text-fg underline underline-offset-4">{isUp ? "Sign in" : "Create one"}</Link>
         </p>
       </form>
+      </div>
     </div>
   );
 }

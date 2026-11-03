@@ -6,6 +6,7 @@ const result = await Bun.build({
   entrypoints: ["./src/index.html"],
   outdir: "./dist",
   minify: true,
+  splitting: true,
   plugins: [tailwind],
   env: "BUN_PUBLIC_*",
 });
