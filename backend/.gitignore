@@ -35,3 +35,7 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # uploaded files
 uploads
+
+# local design notes
+docs/decisions.md
+docs/database.md
